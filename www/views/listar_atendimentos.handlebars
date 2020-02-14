@@ -1,0 +1,29 @@
+<header>
+  <div class="header_title_box">
+    <p class="title">Atendimentos registrados</ht>
+  </div>
+  <div class="header_action_box">
+				<a href="/listar_usuarios">Usuários...</a> |
+				<a href="/listar_atendimentos">Atendimentos...</a> |
+				<a href="/listar_processos">Processos...</a> |
+				<a href="/listar_processos_pendentes">Processos pendentes... </a>
+
+  </div>
+</header>
+
+<div class="page_nfo">
+  <table cellpadding="10" style="border-spacing: 0px;">
+  <tr>
+    <td style="width: 20%"><b>Data e hora</b></td>
+    <td><b>Identidicador</b></td>
+    <td><b>Tipo atendimento</b></td>
+  </tr>
+  {{#each nfo}}
+  <tr>
+    <td>{{this.timestamp}}</td>
+    <td>{{this.identificador}}</td>
+    <td>{{this.atd_t}}</td>
+  </tr>
+  {{/each}}
+  </table>
+</div> 

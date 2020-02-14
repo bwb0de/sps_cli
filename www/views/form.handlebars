@@ -1,0 +1,129 @@
+<form id="formulario_corrente" nome="formulario_corrente" action="/processar_formulario/{{form_ref}}" method="POST">
+    <input type="hidden" name="_csrf" value="{{csrf}}">
+    <input type="hidden" name="idt" value="{{idt}}">
+
+	<header>
+            <div class="header_title_box">
+                <p class="title">{{form_head}}</p>
+            </div>
+            <div class="header_action_box">
+                    <button form="formulario_corrente" type="submit" class="w3-btn w3-black w3-hover-red">Registrar</button>
+            </div>
+        </div>
+	</header>
+
+	<div class="page_nfo">
+		<div class="w3-row-padding">
+
+
+	{{#each campos}}
+    <div class="w3-col {{this.tamanho}}"><p>
+        {{#if this.isSubt1}}
+                <h3 class="w3-text-blue"><b>{{this.nfo}}</b></h3>
+        {{/if}}
+
+        {{#if this.isSubt2}}
+                <h4 class="w3-text-red">{{this.nfo}}</h4>
+        {{/if}}
+
+        {{#if this.isTextarea}}
+            <label for="{{this.id}}">
+                {{this.etiqueta}}:</label>
+                <textarea id="{{this.id}}" name="{{this.nome}}" class="w3-input w3-border" style="margin-left: 0px; height: 75px;"></textarea>
+        {{/if}}
+
+        {{#if this.isRadioText}}
+            <label for="{{this.id}}">
+                {{this.etiqueta}}:</label>
+                <div>
+                    {{#each this.options}}
+                        <input style="width:25px;" type="radio" class="w3-radio" id="{{this.item_id}}" name="{{this.item_nome}}" value="{{this.item_val}}"><div style="margin-top: -20px; margin-left: 25px;">{{this.item_val}}</div>
+                    {{/each}}
+                </div>
+                <div>
+                    <input type="{{this.tipo}}" class="w3-input w3-border" id="{{this.id}}" name="{{this.nome}}" placeholder="{{this.dica}}">
+                </div>
+        {{/if}}
+
+        {{#if this.isEscala}}
+            <label for="{{this.id}}">
+                {{this.etiqueta}}:</label>
+                <div>
+                    {{#each this.options}}
+                        <input style="width:25px;" type="radio" class="w3-radio" id="{{this.item_id}}" name="{{this.item_nome}}" value="{{this.item_val}}">{{this.item_val}} 
+                    {{/each}}
+                </div>
+        {{/if}}
+
+        {{#if this.isRadio}}
+            <label for="{{this.id}}">
+                {{this.etiqueta}}:</label>
+                <div>
+                {{#if this.horizontal}}
+                    {{#each this.options}}
+                    <input style="width:25px;" type="radio" class="w3-radio" id="{{this.item_id}}" name="{{this.item_nome}}" value="{{this.item_val}}">{{this.item_val}}
+                    {{/each}}
+                {{else}}
+                    {{#each this.options}}
+                    <input style="width:25px;" type="radio" class="w3-radio" id="{{this.item_id}}" name="{{this.item_nome}}" value="{{this.item_val}}"><div style="margin-top: -20px; margin-left: 25px;">{{this.item_val}}</div>
+                    {{/each}}
+                {{/if}}
+                </div>
+                
+        {{/if}}
+
+        {{#if this.isCheckbox}}
+            <label for="{{this.id}}">
+                {{this.etiqueta}}:</label>
+                <div>
+                {{#if this.horizontal}}
+                    {{#each this.options}}
+                    <input style="width:25px;" type="checkbox" class="w3-check" id="{{this.item_id}}" name="{{this.item_nome}}" value="{{this.item_val}}">{{this.item_val}}
+                    {{/each}}
+                {{else}}
+                    {{#each this.options}}
+                    <input style="width:25px;" type="checkbox" class="w3-check" id="{{this.item_id}}" name="{{this.item_nome}}" value="{{this.item_val}}"><div style="margin-top: -20px; margin-left: 25px;">{{this.item_val}}</div>
+                    {{/each}}
+                {{/if}}
+                </div>
+        {{/if}}
+
+        {{#if this.isNumber}}
+          <div>
+            <label for="{{this.id}}">
+                {{this.etiqueta}}:</label>
+                <div>
+                  <input type="{{this.tipo}}" class="w3-input w3-border" id="{{this.id}}" name="{{this.nome}}" placeholder="{{this.dica}}">
+                </div>
+          </div>
+        {{/if}}          
+
+        {{#if this.isDate}}
+          <div>
+            <label for="{{this.id}}">{{this.etiqueta}}:</label>
+                <div>
+                  <input type="{{this.tipo}}" class="w3-input w3-border" id="{{this.id}}" name="{{this.nome}}" placeholder="{{this.dica}}">
+                </div>
+          </div>
+        {{/if}}          
+
+        {{#if this.isText}}
+            {{#if this.visivel}}
+            <div>
+            {{else}}
+            <div hidden>
+            {{/if}}
+                <label for="{{this.id}}">{{this.etiqueta}}:</label>
+                <div>
+                    <input type="{{this.tipo}}" class="w3-input w3-border" id="{{this.id}}" name="{{this.nome}}" placeholder="{{this.dica}}">
+                </div>
+            </div>
+        {{/if}}
+        </p></div>
+	{{/each}}
+
+            
+		</div>
+	</div>
+<div style="height: 40%;"></div>
+</form>

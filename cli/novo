@@ -1,0 +1,336 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Adiniona novos registros nos arquivos de dados.
+
+Usage:
+    novo ( usr | usuario ) <identificador>
+    novo ( atd | atendimento ) <identificador>
+    novo ( sei | processo ) <identificador> <assunto>
+    novo ( res | resposta-de-processo ) <num_sei>
+    novo ( est | estudo ) <identificador>
+    novo ( tag | marcador-de-usuario ) <identificador> <marcador>
+    novo ( dbc | campo-db ) <arquivo_db> <coluna> [<lista-ops>] 
+    novo ( dbi | inserir-info ) ( mesclado | aninhado ) <arquivo_db> <formulario> 
+    novo ( opt | inserir-op) <coluna> <opcao> <formulario>
+
+Options:
+    --version
+
+Observações:
+    A opção <lista-ops> pode ser separada por ';' para criar um campo de múltipla escolha.
+    O comando 'dbi' insere as respostas de um formulário¹ em um arquivo de dados JSON já criado.
+    O comando 'opt' insere uma alternativa ao campo de multipla escolha indicado de um formulário.
+    Apenas 'root' pode executar os comandos 'pro' e 'tgr'.
+
+¹Estrutura do arquivo de formulário:
+	{
+		"form_head": "Registro de atendimento",
+		"info": "Intrumental para registro de atendimentos no âmbito do SPS/FUP",
+        "external_registry_file": "atendimentos.json",
+        "form_lst_fields": "timestamp, identificador, atd_t",
+		"form_questions":
+		[
+			{
+				"enunciado": "Matrícula",
+				"id": "identificador",
+				"tipo": "text",
+			},
+			{
+				"enunciado": "Tipo de atendimento",
+				"id": "atd_t",
+				"tipo": "checkbox",
+				"alternativas" :
+				[
+					"Informação presencial",
+					"Informação via telefone",
+					"Outro"²
+				]            
+			}
+		]
+	}	
+
+²A inclusão da opção 'Outro' permite a insersão dinâmica de outros valores no formulário
+
+"""
+
+
+import os
+import time
+
+from docopt import docopt
+from subprocess import getoutput
+
+from python_modules.cli_base import \
+    numero_identificador_mascara,\
+    matriculas,\
+    save_target_info,\
+    users_list_of_dicts,\
+    formulario_novo_usuario,\
+    formulario_novo_processo,\
+    formulario_atendimentos,\
+    formulario_registro_de_correcao,\
+    formulario_estudo_estudante,\
+    timestamp,\
+    numero_sei_mascara,\
+    dados_processos,\
+    dados_atendimentos,\
+    dados_corrigidos,\
+    dados_estudos,\
+    arquivo_estudos,\
+    arquivo_corrigidos,\
+    arquivo_atendimentos,\
+    arquivo_processos,\
+    arquivo_usuarios,\
+    db_folder,\
+    periodo_corrente,\
+    send_email_automaticaly,\
+    calculate_col_width
+    
+from python_modules.cli_decorators import check_config_existance
+from python_modules.cli_tools import select_op, select_ops, limpar_tela, verde, input_op, render_form_get_values
+from python_modules.cli_tools import save_json, load_json, sort_dict, sort_questions_inner_dict
+
+args = docopt(__doc__)
+
+matriculas = list(matriculas)
+
+def is_user_registred(function):
+    def wrapper(*a):
+        identificador = numero_identificador_mascara(args['<identificador>'])
+        if not identificador in matriculas:
+            print("Usuário não cadastrado...")
+            novo_usuario(identificador)
+            matriculas.append(identificador)
+            save_target_info(identificador, users_list_of_dicts)
+        return function(*a)
+    return wrapper
+
+
+def novo_usuario(identificador):
+    nfo = render_form_get_values(formulario_novo_usuario, ['identificador'])
+    nfo['identificador'] = numero_identificador_mascara(identificador)
+    users_list_of_dicts.append(nfo)
+    save_json(sort_questions_inner_dict(users_list_of_dicts), arquivo_usuarios)
+    os.system("cli-indexdb sexo")
+    #if work_with_fragments:
+    #    frag_name = 'USR'+getoutput("date +%Y%U%u%H%M%S%N")+'@'+hostname
+    #    cripto_frag_name = frag_name+'.cpt'
+    #    fragmento = os.sep.join([fragments_folder, frag_name])
+    #    save_json(nfo, fragmento)
+    #    recebidos = load_json(received_fragments_file)
+    #    recebidos.append(cripto_frag_name)
+    #    save_json(recebidos, received_fragments_file)
+    #    os.system('fragment send "{}"'.format(fragmento))
+
+
+@is_user_registred
+def novo_processo(identificador, assunto):
+    nfo = render_form_get_values(formulario_novo_processo, ['identificador'])
+    nfo['timestamp'] = timestamp() 
+    nfo['identificador'] = numero_identificador_mascara(identificador)
+    nfo['assunto'] = assunto
+    nfo['resultado'] = ''
+    nfo['numero_sei'] = numero_sei_mascara(nfo['numero_sei'])
+    dados_processos.append(nfo)
+    save_json(dados_processos, arquivo_processos)
+    return nfo['numero_sei']
+
+def novo_resultado_processo(processo_num):
+    for proc in dados_processos:
+        if proc['numero_sei'] == processo_num:
+            proc['resultado'] = select_op(['Deferido', 'Indeferido'], 1)
+            if proc['resultado'] == 'Indeferido':
+                proc['justificativa'] = input("Justificativa: ")
+            save_json(dados_processos, arquivo_processos)
+            return [proc['identificador'], proc['resultado']]
+
+
+@is_user_registred
+def novo_atendimento(identificador):
+    idt = numero_identificador_mascara(identificador)
+    nfo = render_form_get_values(formulario_atendimentos, ['identificador'])
+    nfo['timestamp'] = timestamp() 
+    nfo['identificador'] = idt
+    nfo['prof_atd'] = getoutput("whoami")+'@'+getoutput("hostname")
+    dados_atendimentos.append(nfo)
+    save_json(dados_atendimentos, arquivo_atendimentos)
+    return nfo['atd_t']
+
+
+@is_user_registred
+def nova_correcao(identificador):
+    nfo = render_form_get_values(formulario_registro_de_correcao, ['identificador'])
+    idt = numero_identificador_mascara(identificador)
+    nfo['timestamp'] = timestamp() 
+    nfo['identificador'] = idt
+    dados_corrigidos.append(nfo)
+    save_json(dados_corrigidos, arquivo_corrigidos)
+
+
+
+def nova_coluna(nome_col, json_file, options=None):
+    db_file = load_json(os.sep.join([db_folder, json_file]))
+    if options != None and options.find(";") != -1:
+        opz = options.split(';')
+        selection = True
+    else:
+        opz = options
+        selection = False
+    for i in db_file:
+        if i.get(nome_col) == None and selection == True:
+            for col in i.keys():
+                print(col, ' -> ', i[col])
+            nova_col_nfo = select_ops(opz, 1)
+            if len(nova_col_nfo) > 1:
+                i[nome_col] = ';'.join(nova_col_nfo)
+            else:
+                i[nome_col] = nova_col_nfo[0]
+        elif i.get(nome_col) == None and selection == False:
+            if options == None:
+                i[nome_col] = input(str(nome_col)+': ')
+            else:
+                i[nome_col] = opz
+        save_json(db_file, os.sep.join([db_folder, json_file]))
+
+
+@is_user_registred
+def novo_estudo(identificador):
+    nfo = {}
+    idt = numero_identificador_mascara(identificador)
+    nfo['semestre'] = periodo_corrente
+    nfo['identificador'] = idt
+    nfo['estudo_id'] = "{}@{}".format(idt,periodo_corrente)
+    nfo['controle_pendencias'] = []
+    nfo_tmp = render_form_get_values(formulario_estudo_estudante, ['identificador'])
+    for col in nfo_tmp.keys():
+        nfo[col] = nfo_tmp[col]
+    del(nfo_tmp)
+    if nfo.get('membros_grupo_familiar') == None:
+        nfo['membros_grupo_familiar'] = {}
+    
+    nfo = analise_and_generate_indirect_info(nfo)
+
+    dados_estudos.append(nfo)
+    save_json(dados_estudos, arquivo_estudos)
+    return nfo
+
+
+def analise_and_generate_indirect_info(estudo_nfo_dict):
+    estudo_nfo_dict['numero_pessoas_grpf'] = len(estudo_nfo_dict['membros_grupo_familiar'].keys()) + 1
+    #estudo_nfo_dict['media_idade_pessoas_grpf']
+    #estudo_nfo_dict['media_idade_mantenedores_grpf']
+    #estudo_nfo_dict['media_idade_responsaveis_grpf']
+    #estudo_nfo_dict['diferenca_idade_estudante_pai']
+    #estudo_nfo_dict['diferenca_idade_estudante_mae']
+    #estudo_nfo_dict['indice_de_diferenca_geracional_entre_estudante_resp']
+    #estudo_nfo_dict['indice_de_diferenca_geracional_entre_responsaveis_grpf']
+    #estudo_nfo_dict['media_escolaridade_grpf']
+    #estudo_nfo_dict['media_escolaridade_responsaveis_grpf']
+    #estudo_nfo_dict['media_escolaridade_nao_responsaveis_grpf']
+    #estudo_nfo_dict['indice_de_diferenca_escolaridade_entre_responsaveis_e_nao_resp_grpf']
+    #estudo_nfo_dict['faixa_de_renda_selecao']
+    #estudo_nfo_dict['faixa_de_renda_disponivel'] #Calculada a partir dos descontos de moradia, agua, luz, alim...
+    #estudo_nfo_dict['gastos_moradia_per_capita']
+    #estudo_nfo_dict['relacao_area_moradia_pessoas']
+    #estudo_nfo_dict['relacao_numero_mantenedores_dependentes']
+    return estudo_nfo_dict
+
+
+
+def insert_info(json_estudantes, print_fields, formulario_q_add, novo_nome_de_campo):
+    #insert_info('Consultas_OldSAE.json', ['identificador','Nome','Periodo','Data de Nascimento'], 'form_estudo_socioeconomico.json', 'Estudo Social e Economico')
+    estudantes = load_json('./{}'.format(json_estudantes))
+    novas_questoes = load_json('./forms/{}'.format(formulario_q_add))
+    for e in estudantes:
+        print(e)
+        if e.get(novo_nome_de_campo) == None:
+            limpar_tela()
+            print_nfo = ""
+            for f in print_fields:
+                print_nfo += e[f] + os.linesep
+            print(print_nfo)
+            nfo = render_form_get_values(novas_questoes)
+            e[novo_nome_de_campo] = nfo
+            save_json(estudantes, './{}'.format(json_estudantes))
+
+def select_user_nfo_and_aply_idt_mask(arg_identificador):
+    identificador = numero_identificador_mascara(arg_identificador)
+    os.system("target select {}".format(identificador))
+    return identificador
+
+@check_config_existance
+def main():
+    global current_mat
+    current_mat = False
+
+    if args['usr'] or args['usuario']:
+        identificador = select_user_nfo_and_aply_idt_mask(args['<identificador>'])
+        novo_usuario(identificador)
+
+    elif args['atd'] or args['atendimento']:
+        identificador = select_user_nfo_and_aply_idt_mask(args['<identificador>'])
+        atd_t = novo_atendimento(identificador)
+
+        if atd_t == "Encaminhamento de pedido de auxílio emergencial":
+            numero_sei = novo_processo(identificador, atd_t)
+            if send_email_automaticaly:
+                os.system('cli-api insert -tp atendimentos.json "identificador::{}" "procedimento::{}" "atd_t::{}" "resultado::{}"'.format(identificador, "Atendimento via e-mail", "Envio de número de processo", "Verificar status de envio de email..."))
+                os.system('echo "{numero_sei}" | sendeml get "$(target get eml)" "Assistência Estudantil - Processo de Auxílio Emergencial" "Segue o número do processo para acompanhamento do resultado. Com este número você pode consultar o resultado com qualquer pessoa do SPS que possua acesso ao SEI."'.format(numero_sei=numero_sei))
+
+        elif atd_t == "Solicitação de acesso extraordinário ao RU":
+            numero_sei = novo_processo(identificador, atd_t)
+            if send_email_automaticaly:
+                os.system('echo "{numero_sei}" | sendeml get "$(target get eml)" "Assistência Estudantil - Processo de Acesso ao RU" "Segue o número do processo para que você possa acompanhar do resultado. Com este número você pode consultar o resultado junto a qualquer pessoa do SPS que possua acesso ao SEI."'.format(numero_sei=numero_sei))
+                os.system('cli-api insert -tp atendimentos.json "identificador::{}" "procedimento::{}" "atd_t::{}" "resultado::{}"'.format(identificador, "Atendimento via e-mail", "Envio de número de processo", "Verificar status de envio de email..."))
+
+        elif atd_t == "Recebimento/digiralização de pedido de recurso ao resultado da avaliação socioeconômica":
+            numero_sei = novo_processo(identificador, atd_t)
+            if send_email_automaticaly:
+                os.system('echo "{numero_sei}" | sendeml get "$(target get eml)" "Assistência Estudantil - Processo de Recurso à Avaliação Socioeconômica" "Segue o númro do processo de recurso. Se até a data prevista para o resultado você não obtiver resposta, vá ao SPS, forneça este número e informe a pendência."'.format(numero_sei=numero_sei))
+                os.system('cli-api insert -tp atendimentos.json "identificador::{}" "procedimento::{}" "atd_t::{}" "resultado::{}"'.format(identificador, "Atendimento via e-mail", "Envio de número de processo", "Verificar status de envio de email..."))
+
+        elif atd_t == "Emissão de declaração PPAES":
+            os.system('mkdoc dec-ppaes "{}"'.format(identificador))
+ 
+        elif atd_t == "Emissão de declaração para criação de Conta Corrente":
+            os.system('mkdoc dec-cc "{}"'.format(identificador))
+
+    elif args['sei'] or args['processo']:
+        identificador = select_user_nfo_and_aply_idt_mask(args['<identificador>'])
+        novo_processo(identificador, args['<assunto>'])
+
+    elif args['res'] or args['resposta-de-processo']:
+        resultado = novo_resultado_processo(args['<num_sei>'])
+        save_target_info(resultado[0], users_list_of_dicts)
+        if send_email_automaticaly:
+            os.system('echo "{numero_sei}" | sendeml get "$(target get eml)" "Assistência Estudantil - Comunicado de resultado de processo" "Informo que o processo {numero_sei} foi {resultado}."'.format(numero_sei=args['<num_sei>'], resultado=resultado[1]))
+            os.system('cli-api insert -tp atendimentos.json "identificador::{}" "procedimento::{}" "atd_t::{}" "resultado::{}"'.format(resultado[0], "Atendimento via e-mail", "Comunicado de resultado de processo", "Verificar status de envio de email..."))
+
+    elif args['est'] or args['estudo']:
+        identificador = numero_identificador_mascara(args['<identificador>'])
+        os.system("target select {}".format(identificador))
+
+        global idt
+        idt = identificador
+        os.system('cli-api insert -tp atendimentos.json "identificador::{}" "procedimento::{}" "atd_t::{}" "resultado::{}"'.format(identificador, "Processamento de demanda anterior", "Avaliação socioeconômica, análise inicial", ""))
+       
+    elif args['tag']:
+        os.system('cli-api tag-insert usuarios.json "{tag}" "{idt}"'.format(tag=args['<marcador>'], idt=args['<identificador>']))
+
+    elif args['dbc'] or args['campo-db']:
+        nova_coluna(args['<coluna>'], args['<arquivo_db>'], args['<lista-ops>'])
+
+    elif args['dbi'] or args['inserir-info']:
+        pass
+        
+if __name__ == '__main__':
+    cmd = main()
+    newpid = os.fork()
+    if newpid == 0:
+        calculate_col_width()
+        os.system("cli-indexdb construir")
+        if args['est']:
+            os.system("clear; mkrel {}".format(idt))

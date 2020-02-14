@@ -1,0 +1,11 @@
+*.pyc
+__pycache__
+dados
+eml-template
+testing
+Consultas*
+.current_target
+.directory
+fragz
+node_modules
+*.csv

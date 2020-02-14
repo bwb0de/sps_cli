@@ -1,0 +1,106 @@
+{
+    "external_registry_file": "usuarios.json",
+    "form_head": "Formulário para cadastro de estudante",
+    "form_info": "Intrumental destinado à coleta de informações centrais para identificação e comunicação com estudantes atendidos pelo SPS/FUP",
+    "form_lst_fields": "identificador, nome, curso, eml",
+    "form_questions": [
+        {
+            "tipo": "text",
+            "id": "identificador",
+            "enunciado": "Identificador"
+        },
+        {
+            "tipo": "text",
+            "id": "nome",
+            "enunciado": "Nome"
+        },
+        {
+            "tipo": "radio",
+            "id": "sexo",
+            "enunciado": "Sexo",
+            "alternativas": [
+                "Masculino",
+                "Feminino"
+            ]
+        },
+        {
+            "tipo": "text",
+            "id": "eml",
+            "enunciado": "Contato (e-Mail, Zap...)"
+        },
+        {
+            "tipo": "radio",
+            "id": "publico_tipo",
+            "enunciado": "Perfil",
+            "alternativas": [
+                "Babaçu",
+                "Comunidade externa",
+                "Estudante",
+                "Estágio em Serviço Social",
+                "Outro",
+                "Servidor",
+                "Vigar"
+            ]
+        },
+        {
+            "tipo": "radio",
+            "id": "curso",
+            "enunciado": "Curso/Setor",
+            "alternativas": [
+                "Administração",
+                "Agronomia",
+                "Arquitetura e Urbanismo",
+                "Biblioteconomia",
+                "Ciêncas da Computação",
+                "Ciência Política",
+                "Ciências Ambientais",
+                "Ciências Biológicas",
+                "Ciências Contábeis",
+                "Ciências Naturais",
+                "Ciências Sociais",
+                "Computação",
+                "Comunicação Organizacional",
+                "Direito",
+                "Educação Física",
+                "Enfermagem",
+                "Engenharia Civil",
+                "Engenharia Elétrica",
+                "Engenharia Mecânica",
+                "Engenharia de Computação",
+                "Engenharia de Redes de Comunicação",
+                "Espanhol",
+                "Estatística",
+                "Farmácia",
+                "Filosofia",
+                "Física",
+                "Gestão Ambiental",
+                "Gestão de Agronegócios",
+                "Gestão do Agronegócio",
+                "História",
+                "Inglês",
+                "Interpretação Teatral",
+                "Jornalismo",
+                "Licenciatura em Educação do Campo",
+                "Lingua Francesa e Respectiva Literatura",
+                "Lingua Portuguesa e Respectiva Literatura",
+                "Língua Espanhola e Literatura Espanhola e Hispano-Americana",
+                "Língua e Literatura Japonesa",
+                "Línguas Estrangeiras Aplicadas - MSI",
+                "Matemática",
+                "Medicina veterinária",
+                "Meio Ambiente e Desenvolvimento Rural - Mestrado",
+                "Nutrição",
+                "Odontologia",
+                "Outro",
+                "Pedagogia",
+                "Português do Brasil como Segunda Língua",
+                "Pós-Graduação",
+                "Química",
+                "Relações Internacionais",
+                "Serviço Social",
+                "Turismo",
+                "aaaaaaaaaaaaa"
+            ]
+        }
+    ]
+}

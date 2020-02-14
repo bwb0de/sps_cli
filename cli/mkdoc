@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Gera declarações padronizadas a partir do cruzamento de modelos com as informações dos estudantes.
+
+Usage:
+    mkdoc [ -d ] ( dec-ppaes ) <identificador>
+    mkdoc ( dec-cc ) <identificador>
+
+Options:
+    -v, --version           
+    -d, --detalhada
+
+"""
+
+import os
+
+from docopt import docopt
+from subprocess import getoutput
+#from python_modules.templates import base_html_layout 
+from python_modules.cli_base import tmp_folder
+from python_modules.cli_base import arquivo_sex_info, arquivo_modelo_ppaes, arquivo_modelo_ppaes_detalhado, arquivo_modelo_ccc
+from python_modules.cli_base import timestamp
+from python_modules.cli_tools import verde, amarelo, input_op
+from python_modules.cli_tools import load_json, save_json
+
+args = docopt(__doc__)
+initdir = getoutput('pwd')
+
+
+def main():
+    idt = args['<identificador>'].replace('/','')
+    sex_info = load_json(arquivo_sex_info)
+    tmp_working_folder = os.sep.join([tmp_folder, idt])
+    os.mkdir(tmp_working_folder)
+
+    os.system("target select '{}'".format(args['<identificador>']))
+
+    nome = getoutput("target get nome")
+    identificador = getoutput("target get identificador")
+    curso = getoutput("target get curso")
+    data = timestamp("long")
+    cpf = "#CPFNUM#"
+    programas = "#PROGRAMAS#" #checar vinculo programas
+    valor_programas = "#SOMA_PROGRAMAS#"
+
+    
+    if args['dec-ppaes']:
+        print(amarelo("Gerando declaração PPAES na lasta local..."))
+        output_fname = "{identificador} {nome} - PPAES.odt".format(identificador=idt, nome=nome)
+        if args['--detalhada']:
+            os.system('cp "{}" "{}"'.format(arquivo_modelo_ppaes_detalhado, tmp_working_folder))
+            modelo_fname = arquivo_modelo_ppaes_detalhado.split("/")[-1]
+        else:
+            os.system('cp "{}" "{}"'.format(arquivo_modelo_ppaes, tmp_working_folder))
+            modelo_fname = arquivo_modelo_ppaes.split("/")[-1]        
+
+    
+    elif args['dec-cc']:
+        print(amarelo("Gerando declaração para criação de conta bancária na lasta local..."))
+        output_fname = "{identificador} {nome} - Dec CCC.odt".format(identificador=idt, nome=nome)
+        os.system('cp "{}" "{}"'.format(arquivo_modelo_ccc, tmp_working_folder))
+        modelo_fname = arquivo_modelo_ccc.split("/")[-1]        
+
+    
+    os.chdir(tmp_working_folder)
+    os.system('unzip "{mod_fn}" > /dev/null; rm "{mod_fn}"'.format(mod_fn=modelo_fname))
+    
+    
+    with open("content.xml", 'r') as contentxml:
+        fdata = contentxml.read()
+    
+
+    if sex_info[nome.split(" ")[0]] == "m":
+        fdata = fdata.replace('#@#', 'o')
+    elif sex_info[nome.split(" ")[0]] == "f":
+        fdata = fdata.replace('#@#', 'a')
+    else:
+        print(verde("Utilizar qual flexão de gênero? [m|f|i]"))
+        op = input_op(["m", "f", "i"])
+        if op == "m":
+            fdata = fdata.replace('#@#', 'o')
+        elif op == "f":
+            fdata = fdata.replace('#@#', 'a')
+        else:
+            fdata = fdata.replace('#@#', 'x')
+
+    fdata = fdata.replace('#NOME#', nome)
+    fdata = fdata.replace('#IDENTIFICADOR#', identificador)
+    fdata = fdata.replace('#CURSO#', curso)
+    fdata = fdata.replace('#DATA#', data)
+    fdata = fdata.replace('#CPF#', cpf)
+    fdata = fdata.replace('#PROGRAMAS#', programas)
+    fdata = fdata.replace('#VALOR_PROGRAMAS#', valor_programas)
+
+    with open("content.xml", 'w') as contentxml:
+        contentxml.write(fdata)
+
+    os.system('zip "{out_fn}" * -mr0q; mv "{out_fn}" "{initdir}/"'.format(out_fn=output_fname, initdir=initdir))
+    os.system('rm -fR "{}"'.format(tmp_working_folder))
+        
+        
+if __name__ == '__main__':
+    main()

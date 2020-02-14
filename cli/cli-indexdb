@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Cria ou recria arquivo de índices do banco de dados.
+
+Usage:
+    cli-indexdb ( construir )
+    cli-indexdb ( inserir ) <identificador> <set_de_dados>
+    cli-indexdb ( sexo )
+    cli-indexdb ( sexofix )
+    cli-indexdb ( rebuild )
+    cli-indexdb ( getline ) <num_linha>
+
+Options:
+    --version
+
+"""
+
+import os
+import asyncio
+import itertools
+import json
+
+from docopt import docopt
+from subprocess import getoutput
+
+from python_modules.cli_tools import save_json, load_json, amarelo, verde, input_op
+
+from python_modules.cli_base import \
+    db_folder,\
+    arquivo_usuarios,\
+    arquivo_processos,\
+    arquivo_atendimentos,\
+    arquivo_corrigidos,\
+    arquivo_sex_info,\
+    arquivo_index,\
+    users_list_of_dicts,\
+    dados_processos,\
+    dados_atendimentos,\
+    dados_corrigidos,\
+    get_all_users_tags_idx
+
+
+args = docopt(__doc__)
+
+def make_index_set(set_name, target_col, dados_brutos, get_all_users_tags_idx, pointer=None):
+    #Pointer se refere ao campo/informação de retorno que será enviada, geralmente é usado quando uma referência é vinculada à outra
+    index_set = {}
+    index_set['set_de_dados'] = set_name
+    index_set['dados'] = {}
+    if set_name == 'tag' and target_col == 'marcador':
+        index_set['dados'] = get_all_users_tags_idx(dados_brutos)
+
+    else:
+        for linha in dados_brutos:
+            if pointer != None:
+                if linha[target_col].find(',') != -1:
+                    for sub_set in linha[target_col].split(','):
+                        if index_set['dados'].get(sub_set.strip()) == None:
+                            index_set['dados'][sub_set.strip()] = []
+                        index_set['dados'][sub_set.strip()].append(linha[pointer])
+                else:
+                    if index_set['dados'].get(linha[target_col]) == None:
+                        index_set['dados'][linha[target_col]] = []
+                    index_set['dados'][linha[target_col]].append(linha[pointer])
+            else:
+                if index_set['dados'].get(linha[target_col]) == None:
+                    index_set['dados'][linha[target_col]] = []
+                index_set['dados'][linha[target_col]].append(dados_brutos.index(linha))
+    return index_set
+
+
+
+def make_search_set(dados_brutos):
+    index_set = {}
+    index_set['set_de_dados'] = 'nome'
+    index_set['dados'] = {}
+    for linha in dados_brutos:
+        for palavra in linha['nome'].split(' '):
+            if index_set['dados'].get(palavra[0]) == None:
+                index_set['dados'][palavra[0]] = {}
+            if index_set['dados'][palavra[0]].get(palavra) == None:
+                index_set['dados'][palavra[0]][palavra] = []
+            index_set['dados'][palavra[0]][palavra].append(dados_brutos.index(linha))
+    return index_set
+
+            
+async def make_index_set_async(set_name, target_col, dados_brutos, get_all_users_tags_idx, pointer=None):
+    return make_index_set(set_name, target_col, dados_brutos, get_all_users_tags_idx, pointer)
+
+async def make_search_set_async(dados_brutos):
+    return make_search_set(dados_brutos)
+
+
+def remake_index(users_list_of_dicts, dados_atendimentos, dados_corrigidos, dados_processos, arquivo_index, get_all_users_tags_idx):
+    loop = asyncio.get_event_loop()
+    index_db = loop.run_until_complete(asyncio.gather(
+        make_index_set_async('est', 'identificador', users_list_of_dicts, get_all_users_tags_idx),
+        make_index_set_async('est-eml', 'eml', users_list_of_dicts, get_all_users_tags_idx, pointer='identificador'),
+        make_index_set_async('atd', 'identificador', dados_atendimentos, get_all_users_tags_idx),
+        make_index_set_async('corr', 'identificador', dados_corrigidos, get_all_users_tags_idx),
+        make_index_set_async('proc', 'identificador', dados_processos, get_all_users_tags_idx),
+        make_index_set_async('proc_doc', 'numero_sei', dados_processos, get_all_users_tags_idx),
+        make_index_set_async('tag', 'marcador', users_list_of_dicts, get_all_users_tags_idx),
+        make_search_set_async(users_list_of_dicts),
+    ))
+    save_json(index_db, arquivo_index)
+
+
+def main():
+    if args['construir']:
+        remake_index(users_list_of_dicts, dados_atendimentos, dados_corrigidos, dados_processos, arquivo_index, get_all_users_tags_idx)
+
+    elif args['inserir']:
+        pass
+        print("Não definido...")
+
+    elif args['sexo']:
+        sex_info = load_json(arquivo_sex_info)
+        for usr in users_list_of_dicts:
+            primeiro_nome = usr['nome'].split(" ")[0]
+            if not primeiro_nome in sex_info.keys():
+                print(amarelo(primeiro_nome)+" "+verde("é um nome masculino ou feminino? [m|f|?]"))
+                op = input_op(["m", "f", "?"])
+                print("")
+                sex_info[primeiro_nome] = op
+                save_json(sex_info, arquivo_sex_info)
+    
+    elif args['sexofix']:
+        sex_info = load_json(arquivo_sex_info)
+        for usr in users_list_of_dicts:
+            primeiro_nome = usr['nome'].split(" ")[0]
+            usr['sexo'] = sex_info[primeiro_nome]
+        save_json(users_list_of_dicts, arquivo_usuarios)
+
+    
+    elif args['rebuild']:
+        atd = load_json(arquivo_atendimentos)
+        save_json(atd, arquivo_atendimentos)
+
+    elif args['getline']:
+        with open(arquivo_atendimentos, 'r') as atd:
+            linha = itertools.islice(atd, args['<num_linha>']-1, args['<num_linha>'])
+            print(linha)
+
+    
+
+
+if __name__ == '__main__':
+    main()

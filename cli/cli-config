@@ -1,0 +1,186 @@
+#!/bin/sh
+
+#
+# Processo responsável por verificar a existência de novos dados e incluí-los nos respectivos arquivos
+#
+
+GLOBAL_CONFIG_FOLDER="/etc/cli"
+GLOBAL_CONFIG_FILE="cli_tools.conf"
+
+warning () {
+    printf "Usage:\n"
+    printf "    cli-config ( save ) <chave> <valor>\n"
+    printf "    cli-config ( read ) <chave>\n"
+    printf "    cli-config ( edit )\n"
+    printf "    cli-config ( usercfg )\n"
+}
+
+full_info () {
+    printf "\n"
+    printf "Comando para edição rápida das configurações do pacote 'cli-tools'.\n"
+    printf "\n"
+    warning
+    printf "\n"
+    printf "Options:\n"
+    printf "    -h, --help\n"
+    printf "\n"
+}
+
+only_root () {
+    printf "Apenas o root pode executar esta ação...\n"
+    exit 
+}
+
+if [ "$1" = "save" ];
+then
+    if [ "$(whoami)" != "root" ];
+    then
+        only_root
+
+    else
+        if [ "$2" ];
+        then
+            if [ "$3" ];
+            then
+                if [ ! -d /etc/cli ];
+                then
+                    mkdir -p "$GLOBAL_CONFIG_FOLDER"
+                    touch "$GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE"
+                fi
+                echo "$2=$3" >> "$GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE"
+
+            else
+                warning
+                exit
+            fi
+
+        else
+            warning
+            exit
+        fi
+    fi
+
+elif [ "$1" = "read" ];
+then
+    if [ "$2" ];
+    then
+        grep "$2" "$GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE" | awk -F"=" '{ print $2 }'
+    fi
+
+elif [ "$1" = 'edit' ];
+then
+    if [ "$(whoami)" != "root" ];
+    then
+        only_root
+    else
+        nano "$GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE"
+    fi
+
+elif [ "$1" = 'usercfg' ];
+then
+    clear
+    CAMPOS="prof_nome prof_eml eml_pwd especialidade sigla_conselho numero_no_concelho matricula_instituicao"
+    PROF_EML=0
+    echo "{" > "$HOME/.sps-cli.conf"
+    for CAMPO in $CAMPOS;
+    do
+        if [ "$CAMPO" = "prof_nome" ];
+        then
+            printf "Insira o seu nome completo"
+            printf ": "
+            read -r CAMPO_VALOR
+
+        elif [ "$CAMPO" = "prof_eml" ];
+        then
+            printf "Insira o seu endereço de email"
+            printf ": "
+            read -r CAMPO_VALOR
+            PROF_EML="$(printf "%s" "$CAMPO_VALOR" | grep -c '@unb.br')"
+
+        elif [ "$CAMPO" = "eml_pwd" ];
+        then
+            if [ "$PROF_EML" -eq 1 ];
+            then
+                while true;
+                do
+                    stty -echo
+                    printf "Insira a senha do email registrado"
+                    printf ": "
+                    read -r CAMPO_VALOR
+                    printf "Reinsira a senha do email"
+                    printf ": "
+                    read -r CAMPO_VALOR2
+                    stty echo
+                    if [ "$CAMPO_VALOR" = "$CAMPO_VALOR2" ];
+                    then
+                        CAMPO_VALOR="$(echo "$CAMPO_VALOR" | base64)"
+                        break
+                    else
+                        printf "As senhas fornecidas devem ser iguais...\n"
+                    fi
+                done
+            else
+                printf "    \"emp_pwd\": \"\"," >> "$HOME/.sps-cli.conf"
+            fi
+
+        elif [ "$CAMPO" = "especialidade" ];
+        then
+            printf "Informe a especialidade profissional"
+            printf ": "
+            read -r CAMPO_VALOR
+
+        elif [ "$CAMPO" = "sigla_conselho" ];
+        then
+            printf "Informe a sigla do conselho profissional"
+            printf ": "
+            read -r CAMPO_VALOR
+
+        elif [ "$CAMPO" = "numero_no_concelho" ];
+        then
+            printf "Informe a matrícula frente ao conselho"
+            printf ": "
+            read -r CAMPO_VALOR
+
+        elif [ "$CAMPO" = "matricula_instituicao" ];
+        then
+            printf "Informa a matrícula frente à instituição"
+            printf ": "
+            read -r CAMPO_VALOR
+        fi
+
+        if [ "$CAMPO" != "eml_pwd" ];
+        then
+            printf "    \"%s\": \"%s\"," "$CAMPO" "$CAMPO_VALOR" >> "$HOME/.sps-cli.conf"
+        fi
+    done
+
+    if [ "$PROF_EML" -eq 1 ];
+    then
+        printf "    \"eml_server\": \"mail.unb.br\"," >> "$HOME/.sps-cli.conf"
+        printf "    \"eml_port\": \"587\"" >> "$HOME/.sps-cli.conf"
+    else
+        printf "    \"eml_server\": \"\"," >> "$HOME/.sps-cli.conf"
+        printf "    \"eml_port\": \"\"" >> "$HOME/.sps-cli.conf"
+    fi
+
+    printf "}" >> "$HOME/.sps-cli.conf"
+
+elif [ "$1" = '-h' ] || [ "$1" = '--help' ];
+then
+    full_info
+    exit
+
+else
+    warning
+    exit    
+fi
+
+
+if [ $# -eq 0 ];
+then
+    warning
+    exit
+fi
+
+
+

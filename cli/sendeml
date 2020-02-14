@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Envia emails a partir das informações da linha de comando ou redirecionando a saída.
+
+Usage:
+    sendeml ( wrt | escrever ) <destinatario> <assunto> [<mensagem>]
+    sendeml ( get | get-from ) <destinatario> <assunto> [<mensagem>]
+
+Options:
+    --version
+
+Observações:
+    O comando 'get' deve ser utilizado no contexto de uma PIPE
+
+"""
+
+import sys
+import os
+
+from docopt import docopt
+from subprocess import getoutput
+#from python_modules.cli_base import *
+from python_modules.cli_decorators import check_config_existance
+from python_modules.cli_tools import mk_randnum_seq, verde, amarelo
+from python_modules.cli_base import dados_profissionais
+from smtplib import SMTP
+from string import whitespace, punctuation, digits
+from email.message import EmailMessage
+
+args = docopt(__doc__)
+
+def send_email_op(msg, profissional):
+    smtpserver = SMTP(profissional['eml_server'], profissional['eml_port'])
+    smtpserver.ehlo()
+    smtpserver.starttls()
+    smtpserver.ehlo
+    smtpserver.login(profissional['prof_eml'], getoutput("echo {} | base64 -d".format(profissional['eml_pwd'])))
+    smtpserver.send_message(msg)
+    smtpserver.close()
+    print(amarelo("Mensagem enviada"))
+
+
+#@check_config_existance
+def main():
+    profissional = None
+    pipe_nfo = ""
+    for p in dados_profissionais:
+        if p['uid'] == getoutput('whoami'):
+            profissional = p
+            break
+    
+
+
+    if profissional != None:
+        msg = EmailMessage()
+        msg['To'] = args['<destinatario>']
+        msg['From'] = profissional['prof_eml']
+        msg['Subject'] = args['<assunto>']
+
+    if args['wrt'] or args['escrever']:
+        if args['<mensagem>']:
+            msg['Mensagem'] = args['<mensagem>']
+        else:
+            tmp_fname = mk_randnum_seq(6)
+            os.system('nano "/tmp/msg{}"'.format(tmp_fname))
+            f = open("/tmp/msg{}".format(tmp_fname), 'r', encoding="utf-8")
+            msg['Mensagem'] = f.read()
+            f.close()
+
+    elif args['get'] or args['get-from']:
+        if args['<mensagem>']:
+            msg['Mensagem'] = args['<mensagem>']
+        else:
+            msg['Mensagem'] = ""
+
+        pipe_nfo = ''
+
+        while True:
+            line = sys.stdin.readline()
+            if not line:
+                break
+            pipe_nfo += line
+
+    msg_template = msg['Mensagem'] + os.linesep*2 + pipe_nfo + os.linesep*2 + profissional['eml_assinatura']
+
+    msg.set_content(msg_template)
+    send_email_op(msg, profissional)
+
+
+if __name__ == '__main__':
+    main()

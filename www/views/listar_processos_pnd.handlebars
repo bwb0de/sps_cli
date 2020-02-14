@@ -1,0 +1,34 @@
+<header>
+  <div class="header_title_box">
+    <p class="title">Processos pendentes</ht>
+  </div>
+  <div class="header_action_box">
+				<a href="/listar_usuarios">Usuários...</a> |
+				<a href="/listar_atendimentos">Atendimentos...</a> |
+				<a href="/listar_processos">Processos...</a> |
+				<a href="/listar_processos_pendentes">Processos pendentes... </a>
+
+  </div>
+</header>
+
+<div class="page_nfo">
+  <table cellpadding="10" style="border-spacing: 0px;">
+  <tr>
+    <td style="width: 15%"><b>Número SEI</b></td>
+    <td><b>Identificador</b></td>
+    <td><b>Tipo processo</b></td>
+    <td><b>Motivos</b></td>
+  </tr>
+  {{#each nfo}}
+  {{#if this.resultado}}
+  {{else}}
+  <tr>
+    <td>{{this.numero_sei}}</td>
+    <td>{{this.identificador}}</td>
+    <td>{{this.assunto}}</td>
+    <td>{{this.motivo}}</td>
+  </tr>
+  {{/if}}
+  {{/each}}
+  </table>
+</div> 

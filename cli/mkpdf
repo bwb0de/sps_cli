@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Converte o arquivo alvo em PDF.
+
+Usage:
+    mkpdf ( md ) <arquivo_alvo>
+    mkpdf ( html ) <arquivo_alvo>
+
+Options:
+    -v, --version           
+
+"""
+
+import os
+
+from docopt import docopt
+from subprocess import getoutput
+from python_modules.templates import base_html_layout 
+from python_modules.cli_base import tmp_folder
+
+args = docopt(__doc__)
+initdir = getoutput('pwd')
+tmphtmlfile = os.sep.join([tmp_folder, 'tmp-mkpdf.html'])
+tmppdffile = os.sep.join([tmp_folder, 'tmp-mkpdf.pdf'])
+
+def convert_md_to_html(arquivo_alvo, template=base_html_layout, initdir=None):
+    converted_md_data = getoutput('pandoc "{}"'.format(arquivo_alvo))
+    nome_arquivo_html = arquivo_alvo.replace('.md', '.html')
+    output = template.replace("###INFO###",converted_md_data)
+    print(tmp_folder)
+    print(tmphtmlfile)
+      
+    with open(tmphtmlfile, 'w') as output_file:
+        output_file.write(output)
+
+    if not initdir == None:
+        os.system('mv "{html}" "{initdir}/{html_final}"'.format(html=tmphtmlfile, initdir=initdir, html_final=nome_arquivo_html))    
+    return nome_arquivo_html
+
+def convert_html_to_pdf(nome_arquivo_html, arquivo_alvo=tmphtmlfile, dest_folder=initdir):
+    nome_arquivo_pdf = nome_arquivo_html.replace('.html','.pdf')
+    os.system('wkhtmltopdf -B 25mm -T 25mm -L 25mm -R 25mm -q -s A4 "{html}" "{pdf}"'.format(html=arquivo_alvo, pdf=tmppdffile))
+    os.system('mv "{pdf}" "{initdir}/{pdf_final}"'.format(pdf=tmppdffile, initdir=initdir, pdf_final=nome_arquivo_pdf))
+
+
+def main():
+    if args['md']:
+        nome_html = convert_md_to_html(args['<arquivo_alvo>'])
+        convert_html_to_pdf(nome_html)
+
+    elif args['html']:
+        convert_md_to_html(args['<arquivo_alvo>'], initdir=initdir)
+
+        
+if __name__ == '__main__':
+    main()

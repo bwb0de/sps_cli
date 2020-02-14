@@ -1,0 +1,32 @@
+#!/bin/bash
+
+#
+# Processo responsável por verificar a existência de novos dados e incluí-los nos respectivos arquivos
+#
+
+ini_folder=$(pwd)
+
+if [ "$1" == "debian" ];
+then
+    echo "/home/danielc/Documentos/Devel/GitHub/sps_fup2/dados/fila/" > CLI_DB_FILA
+
+elif [ "$1" == 'oracleVM' ];
+then
+    db_frag_folder="/home/danielc/Documentos/Devel/GitHub/sps_fup2/dados/fila/";
+
+elif [ "$1" == 'localhost' ];
+then
+    db_frag_folder="/home/danielc/Documentos/Devel/GitHub/sps_fup2/dados/fila/";
+
+elif [ "$1" == 'spsfup' ];
+then
+    db_frag_folder="/home/danielc/Documentos/Devel/GitHub/sps_fup2/dados/fila/";
+fi
+
+
+
+#while true
+#do
+#	echo "Press [CTRL+C] to stop.."
+#	sleep 8
+#done

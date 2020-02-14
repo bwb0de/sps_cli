@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Adiniona novos registros nos arquivos de dados.
+
+Usage:
+    plot ( usr | usuarios ) 
+    plot ( atd | atendimentos ) 
+    plot ( sei | processos )  
+    plot ( est | estudos ) 
+
+Options:
+    --version
+
+Observações:
+    A opção <lista-ops> pode ser separada por ';' para criar um campo de múltipla escolha.
+    O comando 'dbi' insere as respostas de um formulário¹ em um arquivo de dados JSON já criado.
+"""
+
+from docopt import docopt
+from subprocess import getoutput
+from matplotlib import pyplot as plt
+import numpy as np
+from collections import Counter
+from python_modules.cli_base import dados_atendimentos, working_folder
+from python_modules.cli_tools import obter_frq_abs_from_list_of_dicts
+
+plt.style.use('fivethirtyeight')
+largura_barras = 0.40
+
+args = docopt(__doc__)
+
+def mkplot_atd_pie():
+    all_keys = Counter()
+
+    for block in dados_atendimentos:
+        all_keys.update((block['prof_atd'],))
+
+    print(all_keys)
+
+    procedimentos = []
+    for atd in all_keys.keys():
+        procedimentos.append((atd, all_keys[atd]))
+    
+    sort_by_num = lambda num_e: num_e[1]
+    procedimentos.sort(key=sort_by_num, reverse=False)
+
+    print(procedimentos)
+
+    procedimentos_ordenados = []
+    procedimentos_valores = []
+    
+    for p in procedimentos:
+        procedimentos_ordenados.append(p[0])
+        procedimentos_valores.append(p[1])
+
+    plt.figure(figsize=(7,7))
+    plt.pie(procedimentos_valores)
+    
+    
+    plt.title("Atendimentos por profissional")
+    plt.subplots_adjust(left=0.10, bottom=0.07, right=0.95, top=0.88, wspace=0.20, hspace=0.20)
+    plt.grid(True)
+    plt.savefig('{}/plot_atd_pie.svg'.format(working_folder))
+
+def mkplot_atd_timeline():
+    all_keys = Counter()
+    bwb0de = Counter()
+    danielc = Counter()
+
+    for block in dados_atendimentos:
+        if block['prof_atd'].find('bwb0de'):
+            bwb0de.update((block['timestamp'].split(' ')[0],))
+        elif block['prof_atd'].find('danielc'):
+            danielc.update((block['timestamp'].split(' ')[0],))
+        all_keys.update((block['timestamp'].split(' ')[0],))
+
+    procedimentos = []
+    bw_n_atd = []
+    dani_n_atd = []
+
+    print(all_keys)
+    
+
+    for atd in all_keys.keys():
+        procedimentos.append((atd, all_keys[atd]))
+    
+    sort_by_date = lambda date_val: date_val[0]
+    procedimentos.sort(key=sort_by_date, reverse=False)
+
+    print(procedimentos)
+
+    procedimentos_ordenados = []
+    
+    for p in procedimentos:
+        procedimentos_ordenados.append(p[0])
+
+        if p[0] in bwb0de.keys():
+            bw_n_atd.append(bwb0de[p[0]])
+        else:
+            bw_n_atd.append(0)
+        
+        if p[0] in danielc.keys():
+            dani_n_atd.append(danielc[p[0]])
+        else:
+            dani_n_atd.append(0)
+
+    x_indexes = np.arange(len(procedimentos_ordenados))
+
+    plt.figure(figsize=(12.5,7))
+    plt.xlabel("Dias úteis")
+    plt.ylabel("Número de atendimentos")
+    plt.plot(x_indexes, dani_n_atd, label="Daniel")
+    plt.plot(x_indexes, bw_n_atd, label="bwb0de")
+    plt.legend()
+    plt.title("Curva de atendimentos no tempo")
+    plt.subplots_adjust(left=0.10, bottom=0.07, right=0.95, top=0.88, wspace=0.20, hspace=0.20)
+    plt.grid(True)
+    plt.savefig('{}/plot_atd_timeline.svg'.format(working_folder))
+
+def mkplot_atd_procedimentos():
+    all_keys = Counter()
+    bwb0de = Counter()
+    danielc = Counter()
+
+    for block in dados_atendimentos:
+        if block['prof_atd'].find('bwb0de'):
+            bwb0de.update(block['procedimento'].split(';'))
+        elif block['prof_atd'].find('danielc'):
+            danielc.update(block['procedimento'].split(';'))
+        all_keys.update(block['procedimento'].split(';'))
+
+    procedimentos = []
+    bw_n_atd = []
+    dani_n_atd = []
+
+    for atd in all_keys.keys():
+        procedimentos.append((atd, all_keys[atd]))
+        
+    sort_by_num_atd = lambda quant_atd: quant_atd[1]
+    procedimentos.sort(key=sort_by_num_atd, reverse=False)
+    
+    procedimentos_ordenados = []
+    
+    for p in procedimentos:
+        procedimentos_ordenados.append(p[0])
+
+        if p[0] in bwb0de.keys():
+            bw_n_atd.append(bwb0de[p[0]])
+        else:
+            bw_n_atd.append(0)
+        
+        if p[0] in danielc.keys():
+            dani_n_atd.append(danielc[p[0]])
+        else:
+            dani_n_atd.append(0)
+
+    x_indexes = np.arange(len(procedimentos_ordenados))
+    plt.figure(figsize=(12.5,7))
+    plt.yticks(x_indexes, procedimentos_ordenados)
+    plt.barh(x_indexes+largura_barras, dani_n_atd, height=largura_barras)
+    plt.barh(x_indexes, bw_n_atd, height=largura_barras)
+    plt.title("Atendimentos conforme o tipo de procedimento")
+    #plt.xlabel("Quantidade de procedimentos por tipo")
+    #plt.ylabel("Descritor dos procedimentos")
+    plt.subplots_adjust(left=0.32, bottom=0.07, right=0.95, top=0.88, wspace=0.20, hspace=0.20)
+    #plt.tight_layout()
+    plt.grid(True)
+    plt.savefig('{}/plot_atd_procedimento.svg'.format(working_folder))
+
+def mkplot_atd_tipo_most10():
+    all_keys = Counter()
+    bwb0de = Counter()
+    danielc = Counter()
+
+    for block in dados_atendimentos:
+        if block['prof_atd'].find('bwb0de'):
+            bwb0de.update(block['atd_t'].split(';'))
+        elif block['prof_atd'].find('danielc'):
+            danielc.update(block['atd_t'].split(';'))
+        all_keys.update(block['atd_t'].split(';'))
+
+    procedimentos = []
+    bw_n_atd = []
+    dani_n_atd = []
+
+    for atd in all_keys.most_common(10):
+        procedimentos.append(atd)
+
+    print(all_keys)
+
+    sort_by_num_atd = lambda quant_atd: quant_atd[1]
+    procedimentos.sort(key=sort_by_num_atd, reverse=False)
+
+    print("")
+    print(procedimentos)
+        
+    procedimentos_ordenados = []
+    
+    for p in procedimentos:
+        procedimentos_ordenados.append(p[0])
+
+        if p[0] in bwb0de.keys():
+            bw_n_atd.append(bwb0de[p[0]])
+        else:
+            bw_n_atd.append(0)
+        
+        if p[0] in danielc.keys():
+            dani_n_atd.append(danielc[p[0]])
+        else:
+            dani_n_atd.append(0)
+
+    x_indexes = np.arange(len(procedimentos_ordenados))
+    plt.figure(figsize=(12.5,7))
+    plt.yticks(x_indexes, procedimentos_ordenados)
+    plt.barh(x_indexes+largura_barras, dani_n_atd, height=largura_barras)
+    plt.barh(x_indexes, bw_n_atd, height=largura_barras)
+    plt.title("Atendimentos conforme a ação")
+    #plt.xlabel("Quantidade de procedimentos por tipo")
+    #plt.ylabel("Descritor dos procedimentos")
+    plt.subplots_adjust(left=0.32, bottom=0.07, right=0.95, top=0.88, wspace=0.20, hspace=0.20)
+    #plt.tight_layout()
+    plt.grid(True)
+    plt.savefig('{}/plot_atd_tipo_most10.svg'.format(working_folder))
+
+def main():
+    if args['atd'] or args['atendimentos']:
+        #mkplot_atd_tipo_most10()
+        #mkplot_atd_procedimentos()
+        #mkplot_atd_timeline()
+        mkplot_atd_pie()
+        plt.show()
+
+
+
+if __name__ == '__main__':
+    main()
+

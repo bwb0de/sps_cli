@@ -1,0 +1,29 @@
+<header>
+  <div class="header_title_box">
+    <p class="title">Usuários cadastrados</ht>
+  </div>
+  <div class="header_action_box">
+				<a href="/listar_usuarios">Usuários...</a> |
+				<a href="/listar_atendimentos">Atendimentos...</a> |
+				<a href="/listar_processos">Processos...</a> |
+				<a href="/listar_processos_pendentes">Processos pendentes... </a>
+
+  </div>
+</header>
+
+<div class="page_nfo">
+  <table cellpadding="10" style="border-spacing: 0px;">
+  <tr>
+    <td><b>Identificador</b></td>
+    <td><b>Nome</b></td>
+    <td><b>e-Mail</b></td>
+  </tr>
+  {{#each nfo}}
+  <tr>
+    <td>{{this.identificador}}</td>
+    <td>{{this.nome}}</td>
+    <td>{{this.eml}}</td>
+  </tr>
+  {{/each}}
+  </table>
+</div> 

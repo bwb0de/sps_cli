@@ -1,0 +1,320 @@
+#!/bin/sh
+
+#
+# Script de intalação
+#
+
+INIT_DIR=$(pwd)
+GLOBAL_CONFIG_FOLDER="/etc/cli"
+GLOBAL_CONFIG_FILE="cli_tools.conf"
+PASTA_RAIZ_DO_PROGRAMA=""
+PASTA_DE_DADOS=""
+PASTA_DE_SEGURANCA=""
+PASTA_DE_COMANDOS=""
+PASTA_TEMPORARIA=""
+PASTA_DE_TRABALHO=""
+RCLONE_DRIVE=""
+ENVIO_AUTOMATICO_EMAIL=1
+ENVIO_DE_FRAGMENTOS=1
+
+
+
+warning () {
+    printf "Usage:\n"
+    printf "    cli-install run\n"
+    printf "    cli-install relink\n"
+}
+
+full_info () {
+    printf "\n"
+    printf "Script de intalação do pacote 'cli-tools'.\n"
+    printf "\n"
+    warning
+    printf "\n"
+    printf "Options:\n"
+    printf "    -h, --help\n"
+    printf "\n"
+}
+
+only_root () {
+    printf "Apenas o root pode executar esta ação...\n"
+    exit 
+}
+
+mkrandnum () {
+    rm -f "$1" || touch "$1"
+    awk '
+        BEGIN {	
+        srand()
+        for (i = 0; i < 256; i++)
+            printf("%d %d\n", 256 * rand(), 256 * rand())
+        }' | while read byteone bytetwo;
+            do	
+                printf "%s%s" "$byteone" "$bytetwo" >> "$1"
+            done
+}
+
+link2path () {
+    for FILE in $(ls "$PASTA_DE_COMANDOS");
+    do
+        printf "%s\n" "$FILE"
+        if [ -f "$FILE" ] && [ -x "$FILE" ];
+        then
+            ln -s "$PASTA_DE_COMANDOS/$FILE" "/usr/bin/$FILE"
+        fi
+    done
+}
+
+if [ "$(whoami)" != "root" ];
+then
+    only_root
+fi
+
+if [ $# -eq 0 ];
+then
+    warning
+    exit
+fi
+
+if [ "$1" = "relink" ];
+then
+    PASTA_DE_COMANDOS=$(cli-config read COMANDOS)
+    echo "$PASTA_DE_COMANDOS"
+    printf "\n» Criando links para os scripts na pasta '/usr/bin'...\n"
+    link2path
+
+elif [ "$1" = "run" ];
+then
+    clear
+    printf "Iniciando instalação do 'cli-tools'...\n\n"
+    printf "» Criando arquivo de configuração padrão: "
+    printf "/etc/cli/cli_tools.conf\n\n"
+    mkdir -p "$GLOBAL_CONFIG_FOLDER"
+    if [ ! -f "$GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE" ]; 
+    then
+        touch "$GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE"
+        printf "» Inserindo variáveis globais no arquivo...\n\n"
+
+        printf "» Indique a pasta raíz de 'cli-tools' (caminho para pasta de clonagem).\n"
+        printf "$: "
+        read -r PASTA_RAIZ_DO_PROGRAMA
+
+        printf "\n» Indique o caminho absoluto para a pasta de dados.\n"
+        printf "$: "
+        read -r PASTA_DE_DADOS
+
+        printf "\n» Indique o caminho absoluto para a pasta de segurança.\n"
+        printf "$: "
+        read -r PASTA_DE_SEGURANCA
+
+        printf "\n» Indique o caminho absoluto para a pasta temporária do sistema.\n"
+        printf "$: "
+        read -r PASTA_TEMPORARIA
+
+        printf "\n» Indique o caminho para a pasta de trabalho.\n"
+        printf "$: "
+        read -r PASTA_DE_TRABALHO
+
+        FIRST_LOOP=1
+        while true;
+        do 
+            if [ $FIRST_LOOP -eq 1 ];
+            then
+                printf "\n» Ativar envio automático de email? [s|n]\n"
+            else
+                printf "\n» Responda [s] para 'sim' ou [n] para 'não'...\n"
+            fi
+            printf "$: "
+            read -r ENVIO_AUTOMATICO_EMAIL
+            case $ENVIO_AUTOMATICO_EMAIL in
+            [sS]* )
+                ENVIO_AUTOMATICO_EMAIL=1
+                break;;
+            
+            [nN]* )
+                ENVIO_AUTOMATICO_EMAIL=0
+                break;;
+
+            * )
+                FIRST_LOOP=0
+                printf "Reposta inválida...\n";;
+            esac
+        done
+
+        FIRST_LOOP=1
+        while true;
+        do 
+            if [ $FIRST_LOOP -eq 1 ];
+            then
+                printf "\n» Ativar envio de fragmentos? [s|n]\n"
+            else
+                printf "\n» Responda [s] para 'sim' ou [n] para 'não'...\n"
+            fi
+            printf "$: "
+            read -r ENVIO_DE_FRAGMENTOS
+            case $ENVIO_DE_FRAGMENTOS in
+            [sS]* )
+                ENVIO_DE_FRAGMENTOS=1
+                break;;
+            
+            [nN]* )
+                ENVIO_DE_FRAGMENTOS=0
+                break;;
+
+            * )
+                FIRST_LOOP=0
+                printf "Reposta inválida...\n";;
+            esac
+        done
+    
+        printf "\n» Indique o nome do drive do rclone que será utilizado para fragmentos e backup.\n"
+        printf "$: "
+        read -r RCLONE_DRIVE
+
+
+
+        PASTA_DE_COMANDOS="$PASTA_RAIZ_DO_PROGRAMA/cli/"
+        {
+            printf "PASTA_RAIZ_DO_PROGRAMA=%s\n" "$PASTA_RAIZ_DO_PROGRAMA";
+            printf "PASTA_DE_DADOS=%s\n" "$PASTA_DE_DADOS";
+            printf "PASTA_DE_COMANDOS=%s\n" "$PASTA_DE_COMANDOS";
+            printf "PASTA_DE_SEGURANCA=%s\n" "$PASTA_DE_SEGURANCA";
+            printf "PASTA_TEMPORARIA=%s\n" "$PASTA_TEMPORARIA";
+            printf "PASTA_DE_TRABALHO=%s\n" "$PASTA_DE_TRABALHO";
+            printf "ENVIO_AUTOMATICO_EMAIL=%s\n" "$ENVIO_AUTOMATICO_EMAIL";
+            printf "ENVIO_DE_FRAGMENTOS=%s\n" "$ENVIO_DE_FRAGMENTOS";        
+            printf "RCLONE_DRIVE=%s\n" "$RCLONE_DRIVE";
+        } > "$GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE"
+
+        printf "\n» Criando links para os scripts na pasta '/usr/bin'...\n"
+        link2path
+
+        LINUX_USERS=$(grep "home" /etc/passwd | awk -F":" '{ print $1 }')
+
+        printf "\n» Criando grupo 'cli'...\n"
+        groupadd cli
+
+        printf "\n» Configurando permissões dos usuários...\n"
+        for USER in $LINUX_USERS;
+        do
+            printf "   - %s\n" "$USER"
+            usermod -a -G cli "$USER"
+            MSG="Execute o comando [newgrp cli] para ter acesso ao banco de dados do SPS."
+            printf "\n\nif [ ! -f '%s/%s' ]; \nthen \n\tclear; \n\tprintf '%s'; \n\ttouch '%s/%s'; \nfi" "$PASTA_TEMPORARIA" "$USER" "$MSG" "$PASTA_TEMPORARIA" "$USER" >> "/home/$USER/.bashrc"
+        done
+    fi
+
+    printf "\n» Criando arquivos de dados pendentes:\n"
+    printf "  Arquivos antigos que possuam conteúdo serão preservados...\n"
+    mkdir -p "$PASTA_DE_DADOS/fragmentos"
+    mkdir -p "$PASTA_DE_DADOS/indexados"
+    mkdir -p "$PASTA_DE_SEGURANCA"
+    mkdir -p "$PASTA_DE_TRABALHO"
+
+    ARQUIVOS_DE_DADOS="atendimentos.json corrigidos.json processos.json profissionais.json usuarios.json estudos.json backup-info.json index_db.json emitidos.json recebidos.json sex_info.json"
+    for ARQUIVO in $ARQUIVOS_DE_DADOS;
+    do
+        if [ "$ARQUIVO" = "index_db.json" ] || [ "$ARQUIVO" = "sex_info.json" ];
+        then
+            touch "$PASTA_DE_DADOS/indexados/$ARQUIVO"
+            if [ $(wc -l < "$PASTA_DE_DADOS/indexados/$ARQUIVO") -lt 2 ]; 
+            then 
+                if [ "$ARQUIVO" = "sex_info.json" ];
+                then
+                    printf "{}" > "$PASTA_DE_DADOS/indexados/$ARQUIVO";
+                else
+                    printf "[]" > "$PASTA_DE_DADOS/indexados/$ARQUIVO";
+                fi
+                printf "   - %s\n" "$ARQUIVO"
+            fi
+        elif [ "$ARQUIVO" = "emitidos.json" ] || [ "$ARQUIVO" = "recebidos.json" ];
+        then
+            touch "$PASTA_DE_DADOS/fragmentos/$ARQUIVO"
+            if [ $(wc -l < "$PASTA_DE_DADOS/fragmentos/$ARQUIVO") -lt 2 ]; 
+            then 
+                printf "[]" > "$PASTA_DE_DADOS/fragmentos/$ARQUIVO";
+                printf "   - %s\n" "$ARQUIVO"
+            fi
+        else
+            touch "$PASTA_DE_DADOS/$ARQUIVO"    
+            if [ $(wc -l < "$PASTA_DE_DADOS/$ARQUIVO") -lt 2 ]; 
+            then 
+                printf "[]" > "$PASTA_DE_DADOS/$ARQUIVO";
+                printf "   - %s\n" "$ARQUIVO"
+            fi
+        fi
+    done
+
+
+
+    chown root:cli "$PASTA_DE_DADOS" -R
+    chmod g+rw "$PASTA_DE_DADOS" -R 
+    chmod o-rwx "$PASTA_DE_DADOS" -R
+
+    chown root:cli "$PASTA_DE_TRABALHO" -R
+    chmod g+rw "$PASTA_DE_TRABALHO" -R 
+    chmod o-rwx "$PASTA_DE_TRABALHO" -R
+
+    OP=false
+    FIRST_LOOP=true
+    while true;
+    do
+        if [ $FIRST_LOOP = true ];
+        then
+            printf "\n» Criar um arquivo com código para encriptação de dados? [s|n]\n$: "
+            FIRST_LOOP=false
+        fi
+        read -r OP
+        case $OP in
+        [sS]* )
+            printf "\n» Criando arquivo com código para encriptação...\n";
+            mkrandnum "$PASTA_DE_SEGURANCA/ccrypt-key"
+            break;;
+        
+        [nN]* )
+            break;;
+
+        * )
+            printf "Você deve optar entre [s|n]...\n";;
+        esac
+    done
+
+    chown root:cli "$PASTA_DE_SEGURANCA" -R
+    chmod g+r "$PASTA_DE_SEGURANCA" -R
+    chmod o-rwx "$PASTA_DE_SEGURANCA" -R
+
+    printf "\n» Verificando dependências...\n"
+
+    DEPENDENCIAS="python3 pip3 rclone zip ccrypt nano node npm git pandoc wkhtmltopdf"
+    INSTALAR_DEPENDENCIAS=0
+    INSTALAR_PIP3=0
+    printf "" > "$PASTA_TEMPORARIA/LISTA_DE_DEPENDENCIAS"
+
+    for PROGRAMA in $DEPENDENCIAS;
+    do
+        which "$PROGRAMA"
+        if [ $? -eq 1 ];
+        then
+            if [ "$PROGRAMA" = "pip3" ];
+            then
+                printf "python3-pip " >> "$PASTA_TEMPORARIA/LISTA_DE_DEPENDENCIAS"
+                INSTALAR_PIP3=1
+            else
+                printf "%s " "$PROGRAMA" >> "$PASTA_TEMPORARIA/LISTA_DE_DEPENDENCIAS"
+            fi
+            INSTALAR_DEPENDENCIAS=1
+        fi
+    done
+
+
+    if [ $INSTALAR_DEPENDENCIAS -eq 1 ];
+    then
+        printf "\n» Os seguintes pacotes devem ser instalados...\n"
+        cat "$PASTA_TEMPORARIA/LISTA_DE_DEPENDENCIAS"
+        printf "\n"
+        if [ $INSTALAR_PIP3 -eq 1 ];
+        then
+            printf "\n» Após instalar o pacote 'python3-pip', execute o comando:\npip3 install docopt colored\n\n"
+        fi
+    fi
+fi

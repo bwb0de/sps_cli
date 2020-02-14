@@ -1,0 +1,24 @@
+#!/bin/sh
+
+#
+# Descriptografa o arquivo alvo usando ccrypt e a chave randômica gerada na instalação
+#
+
+if [ $# -eq 0 ];
+then
+    printf "É necessário indicar um arquivo alvo criptografado...\n"
+    exit
+fi
+
+if [ -f /etc/cli/cli_tools.conf ];
+then
+    . /etc/cli/cli_tools.conf
+fi
+
+if [ -f "$1" ];
+then
+    ccdecrypt "$1" "$PASTA_DE_SEGURANCA/ccrypt-key"
+fi
+
+
+

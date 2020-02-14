@@ -1,0 +1,453 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Cria relatório resumido a partir das informações do estudo para o estudante alvo.
+
+Usage:
+    mkrel <identificador>
+
+Options:
+    -v, --version
+
+"""
+
+import os
+import time
+
+from docopt import docopt
+from subprocess import getoutput
+from datetime import datetime
+from python_modules.templates import base_html_layout 
+from python_modules.cli_base import tmp_folder, arquivo_sex_info, load_json, get_dict, dados_estudos, periodo_corrente, dados_lista_creche, dados_lista_moradia, dados_lista_pase, dados_lista_transporte, working_folder
+from python_modules.cli_tools import input_op, verde, strip_simbols, lexical_list_join
+
+args = docopt(__doc__)
+#initdir = getoutput('pwd')
+initdir = os.getcwd()
+tmphtmlfile = os.sep.join([tmp_folder, 'tmp-mkpdf.html'])
+tmppdffile = os.sep.join([tmp_folder, 'tmp-mkpdf.pdf'])
+
+sex_info = load_json(arquivo_sex_info)
+
+
+def calcular_idade(dn):
+    data_nascimento = dn.split('/')
+    data_nascimento = datetime(year=int(data_nascimento[2]), month=int(data_nascimento[1]), day=int(data_nascimento[0]))
+    hoje = datetime(year=time.localtime()[0], month=time.localtime()[1], day=time.localtime()[2])
+    return int(int(str(hoje-data_nascimento).split()[0])/365)
+
+def analisar_renda_mantenedores(pessoa):
+    str_grp = []
+    
+    try:
+        situacao_de_renda = pessoa['situacao_renda'].split(';')
+    except:
+        return None
+
+    for stdr in situacao_de_renda:
+        if stdr == "Recebe auxílio do grupo familiar":
+            str_grp.append('auxilíos percebidos por familiares')
+
+        elif stdr == "Trabalho formal, setor privado" or stdr == "Servidor público efetivo" or stdr == "Servidor público temporário" or stdr == "Serviço público, cargo comissionado":
+            str_grp.append('de atividade formal de emprego')
+
+        elif stdr == "INSS - Aposentadoria":
+            str_grp.append('de aposentadoria')
+
+        elif stdr == "INSS - Auxílio-doença, Auxílio-reclusão…":
+            str_grp.append('de benefício do INSS')
+
+        elif stdr == "INSS - Seguro-desemprego":
+            str_grp.append('de seguro-desemprego')
+
+        elif stdr == "INSS - Pensão por morte, proveniente de pai/mãe" or stdr == "INSS - Pensão por morte, proveniente de cônjuge" or stdr == "Pensão alimentícia formal":
+            str_grp.append('de pensão')
+
+        elif stdr == "Rendimentos: aluguel, participação em lucros":
+            str_grp.append('de rendimentos')
+
+        elif stdr == "Microempreendedor":
+            str_grp.append('de atividade de microempresa')
+
+        elif stdr == "Pensão alimentícia informal":
+            str_grp.append('de pensão alimentícia informal')
+
+        elif stdr == "Estágio remunerado ou menor/jovem aprendiz":
+            str_grp.append('de estágio')
+
+        elif stdr == "Bolsa Acadêmica (PIBIC, PIBID, PIBEX, Mestrado, Doutorado...)":
+            str_grp.append('de bolsa acadêmica')
+
+        elif stdr == "Bolsa da Assistência Estudantil (Auxílio Moradia, Auxílio Socioeconômico…)":
+            str_grp.append('dos programas de assistencia estudantil')
+
+        elif stdr == "Benefício Assistência Social (BPC, Bolsa Família, Renda cidadã…)":
+            str_grp.append('de programas de Assistencia Social')
+
+        elif stdr == "Trabalho autônomo ou informal":
+            str_grp.append('de atividade informal')
+
+        elif stdr == "Poupança/Economias pessoais":
+            str_grp.append('de economias pessoais')
+    
+    return lexical_list_join(str_grp)
+
+def analisar_vinculos_portal_transparencia(nome, cpf):
+    print(cpf, nome)
+    print(getoutput("unb-tools checar-vinculos '{n}' '{cpf}'".format(pt=working_folder, n=nome, cpf=cpf)))
+
+def analisar_vinculo_com_programas(cpf, lista_creche=dados_lista_creche, lista_moradia=dados_lista_moradia, lista_pase=dados_lista_pase, lista_transporte=dados_lista_transporte, ret_mode="String"):
+    output = "Em relação à Assistencia Estudantil, não constam nas folhas de pagamento indicativos de que #@# estudante esteja vinculad#@# a quaisquer um deles."
+    output_strs = []
+    output_info = False
+    if cpf in lista_creche:
+        output_info = True
+        output_strs.append("ao Auxílio Creche")
+    if cpf in lista_moradia:
+        output_info = True
+        output_strs.append("à Moradia Pecúnia")
+    if cpf in lista_pase:
+        output_info = True
+        output_strs.append("ao Auxílio Socioeconômico")
+    if cpf in lista_transporte:
+        output_info = True
+        output_strs.append("ao Auxílio Transporte")
+    
+    o = "Em relação aos programas da Assistência Estudantil, está vinculad#@# "
+    o += lexical_list_join(output_strs)
+
+    if ret_mode == "String":
+        if output_info == True:
+            return o
+        else:
+            return output
+    
+    elif ret_mode == "Values":
+        if (len(output_strs), output_strs) == (0, []):
+            return ()
+        else:
+            return (len(output_strs), output_strs)
+
+    
+
+
+def analisar_vinculo_com_programas_familiar(pessoa, lista_creche=dados_lista_creche, lista_moradia=dados_lista_moradia, lista_pase=dados_lista_pase, lista_transporte=dados_lista_transporte):
+    output = ""
+    if pessoa.get('cpf'):
+        if pessoa['cpf'] != "":
+            output = analisar_vinculo_com_programas(strip_simbols(pessoa['cpf']), ret_mode="Values")
+    return output
+
+def analisar_vinculo_do_estudante_com_programas(nome, cpf):
+    return (nome, analisar_vinculo_com_programas(cpf))
+
+def analisar_vinculo_com_programas_familiares(estudo):
+    o = []
+    o_str = ""    
+    for pessoa in estudo['membros_grupo_familiar'].keys():
+        analisar_vinculos_portal_transparencia(pessoa.upper(), estudo['membros_grupo_familiar'][pessoa]['cpf'])
+        pinfo = (pessoa, analisar_vinculo_com_programas_familiar(estudo['membros_grupo_familiar'][pessoa]))
+        o.append(pinfo)
+    
+    for l in o:
+        if l != "":
+            o_str += str(l)
+    return o_str
+
+
+def analisar_agravos_saude(estudo):
+    rend = "No que tange aos agravos de saúde, "
+    rgrp=[]
+
+    contador_de_agravos = 0
+    if estudo['situacao_saude_estudante'] != "Sem agravos de saúde":
+        contador_de_agravos += 1
+        rgrp.append("o estudante possui {}".format(estudo['situacao_saude_estudante'].lower()))
+    
+
+    for pessoa in estudo['membros_grupo_familiar'].keys():
+        p = estudo['membros_grupo_familiar'][pessoa] 
+        if p.get('situacao_saude'):
+            if p['situacao_saude'] != "Sem agravos de saúde":
+                contador_de_agravos += 1
+                rgrp.append(gender_flex("#@# {} ({} anos)".format(p['relacao_com_estudante'], calcular_idade(p['dn'])), p['sexo']))
+                #if oo.get(p['situacao_saude']):
+                #    oo[p['situacao_saude']].append(gender_flex("#@# {} ({} anos)".format(p['relacao_com_estudante'], calcular_idade(p['dn'])), p['sexo']))
+                #else:
+                #    oo[p['situacao_saude']] = [gender_flex("#@# {} ({} anos)".format(p['relacao_com_estudante'], calcular_idade(p['dn'])), p['sexo'])]
+    
+    if contador_de_agravos == 0:
+        rend += "não a qualquer indicativo de sua presença."
+    else:
+        rend += lexical_list_join(rgrp)
+                
+    return rend
+
+
+
+def lexical_dict_join(dictob, prefix, verbo_conectivo):
+    output = prefix
+    for k in dictob.keys():
+        output += lexical_list_join(dictob[k]) + verbo_conectivo + k
+    return output
+
+
+
+
+def analisar_mantenedores(estudo):
+    o = []
+    o_str = ""
+    for pessoa in estudo['membros_grupo_familiar'].keys():
+        if estudo['membros_grupo_familiar'][pessoa]['situacao_renda'] != 'Sem renda':
+            estudo['membros_grupo_familiar'][pessoa]['natureza_renda'] = analisar_renda_mantenedores(estudo['membros_grupo_familiar'][pessoa])
+            o.append(estudo['membros_grupo_familiar'][pessoa])
+    
+    if len(o) == 1:
+        if o[0]['sexo'] == 'Masculino':
+            o_str += "apenas o {} possui renda própria proveniente {}.".format(o[0]['relacao_com_estudante'].lower(), o[0]['natureza_renda'])
+        else:
+            o_str += "apenas a {} possui renda própria proveniente {}.".format(o[0]['relacao_com_estudante'].lower(), o[0]['natureza_renda'])
+    elif len(o) == 2:
+        for pessoa_selecionada in o:
+            if pessoa_selecionada['sexo'] == 'Masculino':
+                o_str += 'o {} possui renda proveniente {}'.format(pessoa_selecionada['relacao_com_estudante'].lower(), pessoa_selecionada['natureza_renda'])
+            else:
+                o_str += 'a {} possui renda proveniente {}'.format(pessoa_selecionada['relacao_com_estudante'].lower(), pessoa_selecionada['natureza_renda'])
+            if pessoa_selecionada == o[-2]:
+                o_str += ' e '
+    elif len(o) > 2:
+        for pessoa_selecionada in o:
+            if pessoa_selecionada['sexo'] == 'Masculino':
+                o_str += 'o {} possui renda proveniente {}'.format(pessoa_selecionada['relacao_com_estudante'].lower(), pessoa_selecionada['natureza_renda'])
+            else:
+                o_str += 'a {} possui renda proveniente {}'.format(pessoa_selecionada['relacao_com_estudante'].lower(), pessoa_selecionada['natureza_renda'])
+            if pessoa_selecionada == o[-2]:
+                o_str += ' e '
+            elif pessoa_selecionada == o[-1]:
+                pass
+            else:
+                o_str += ', '
+
+
+    return o_str
+
+
+def analisar_cota(valor_campo_cota, valor_campo_cota_tipo1, valor_campo_cota_tipo2=None):
+    output = ''
+
+    if valor_campo_cota == "Não":
+        return 'não cotista'
+
+    elif valor_campo_cota == "Sim":
+        if valor_campo_cota_tipo1 == "Baixa Renda":
+            output += 'cotista baixa renda '
+        elif valor_campo_cota_tipo1 == "Alta Renda":
+            output += 'cotista alta renda '
+        else:
+            output += 'cotista por critério racial'
+        
+        if valor_campo_cota_tipo2 != None:
+            output += valor_campo_cota_tipo2
+        
+        return output
+    return 'não cotista'
+
+
+def analisar_renda_estudante(estudo, nome):
+    estudante = {}
+    if estudo['situacao_renda_estudante'].find("???") != -1:
+        estudante['situacao_renda'] = estudo['situacao_renda_estudante']
+        return "??? Não foi possível verificar, a partir dos documentos e informações apresentadas, se #@# estudante possui ou não renda pessoal proveniente de atividade laboral formal ou informal. ???"
+        
+    elif estudo['situacao_renda_estudante'].find("Sem renda") != -1:
+        return "{} não possui renda própria referente à atividades laborais formais ou informais".format(nome)
+       
+    else:
+        return "{} possui renda própria proveniente {}".format(nome, analisar_renda_mantenedores(estudante))
+
+
+def limpar_texto_de_saida(input):
+    output=input
+    while output.find("  ") != -1:
+        output = output.replace('\n', ' ').replace('  ', ' ').replace('. .','.').replace('..','.')
+        if output.find("  ") == -1:
+            output = output[1:]
+        continue
+    return output
+
+def gender_flex(input_str, person_sex=None, person_name=None, sex_info_db=sex_info):
+    if person_sex == None and person_name == None:
+        print("É necessário fornecer pelo menos um destes argumentos: 'person_sex' ou 'person_name'.")
+        return None
+
+    if person_sex == 'Masculino':
+        return input_str.replace('#@#', 'o')
+
+    elif person_sex == 'Feminino':
+        return input_str.replace('#@#', 'a')
+
+    else:
+        print("A flexão de gênero para o sexo informado não foi configurada...")
+        return None
+
+    if sex_info_db[person_name.split(" ")[0]] == "m":
+        return input_str.replace('#@#', 'o')
+    elif sex_info_db[person_name.split(" ")[0]] == "f":
+        return input_str.replace('#@#', 'a')
+    else:
+        print(verde("Utilizar qual flexão de gênero deve ser utilizada? [m|f|i]"))
+        op = input_op(["m", "f", "i"])
+        print("")
+        if op == "m":
+            return input_str.replace('#@#', 'o')
+        elif op == "f":
+            return input_str.replace('#@#', 'a')
+        else:
+            return input_str.replace('#@#', 'x')
+
+
+def main():
+    output = """
+    Estudante de #IDADE# anos de idade, #COTISTA#,
+    proveniente de escola #TIPO_EM# com ensino médio concluso em #ANO_EM#,
+    vinculad#@# ao curso de #CURSO# (#TURNO#).
+    #RENDA_ESTUDANTE#.
+    #ESTUDANTE_PROGRAMAS#.
+    Reside #SITUACAO_RESIDENCIA# em moradia #MORADIA_CONDICAO#
+    na cidade de #MORADIA_CIDADE#, zona #MORADIA_REGIAO# do #MORADIA_LOCALIDADE#.
+    O grupo familiar é constituído por mais #NUM_PESSOAS# integrantes, 
+    #INTEGRANTES# Destes #RENDA_AVAL#.
+    #SAUDE#...
+    Conforme informações e documentos apresentados, está apt#@# a participar do processo seletivo para os programas escolhidos.
+    """
+
+    #idt = strip_simbols(args['<identificador>'])
+    #sex_info = load_json(arquivo_sex_info)
+    os.system("target select '{}'".format(args['<identificador>']))
+
+    estudo_info = tuple(get_dict('estudo_id', "{}@{}".format(args['<identificador>'], periodo_corrente), dados_estudos))[0]
+
+    try:
+        analisar_agravos_saude(estudo_info)
+    except:
+        print("Estudante independente...")
+
+    nome = getoutput("target get nome")
+    #identificador = getoutput("target get identificador")
+    curso = getoutput("target get curso")
+    cotista = estudo_info['cotista']
+    tipo_cota1 = estudo_info.get('cotista_renda')
+    tipo_cota2 = estudo_info.get('cotista_tipo')
+    cpf = estudo_info.get('cpf_estudante')
+
+    idade = calcular_idade(estudo_info['dn_estudante'])
+    tipo_EM = estudo_info['tipo_EM'].lower()
+    ano_EM = estudo_info['ano_EM']
+    situacao_residencia = estudo_info['situacao_residencia'].lower()
+    moradia_localidade = estudo_info['moradia_localidade']
+    turno_curso = estudo_info['turno_curso'].lower()
+    num_pessoas = len(estudo_info['membros_grupo_familiar'].keys())
+    informacao_basica_pessoas = ''
+        
+    renda_pessoas = analisar_mantenedores(estudo_info)
+    
+    print(analisar_vinculos_portal_transparencia(nome.upper(), cpf))
+    print(analisar_vinculo_com_programas_familiares(estudo_info))
+    print(analisar_vinculo_do_estudante_com_programas(nome, cpf))
+
+    contador = 0
+    for pessoa in estudo_info['membros_grupo_familiar'].keys():
+        p = estudo_info['membros_grupo_familiar'][pessoa]
+        contador += 1
+        if p['sexo'] == 'Masculino':
+            if p['relacao_com_estudante'] == 'Pai' or p['relacao_com_estudante'] == 'Padrasto':
+                informacao_basica_pessoas += "o {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn']))
+                #info = "o {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn']))
+                #print(informacao_basica_pessoas)
+                #informacao_basica_pessoas.append(info)
+            else:
+                informacao_basica_pessoas += "um {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn']))
+                #informacao_basica_pessoas.append("um {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn'])))
+        else:
+            if p['relacao_com_estudante'] == 'Mãe' or p['relacao_com_estudante'] == 'Madrasta':
+                informacao_basica_pessoas += "a {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn']))
+                #informacao_basica_pessoas.append("a {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn'])))
+            else:
+                informacao_basica_pessoas += "uma {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn']))
+                #informacao_basica_pessoas.append("uma {} (de {} anos)".format(p['relacao_com_estudante'].lower(), calcular_idade(p['dn'])))
+        
+        #informacao_basica_pessoas = lexical_list_join(informacao_basica_pessoas)
+
+        if contador == num_pessoas:
+           informacao_basica_pessoas += '. '
+        elif contador == num_pessoas-1:
+            informacao_basica_pessoas += ' e '
+        else:
+            informacao_basica_pessoas += ', '
+        
+   
+    if moradia_localidade == 'RIDE':
+        moradia_localidade= 'entorno'# do DF'
+    elif moradia_localidade == 'Outra UF':
+        moradia_localidade = ''
+
+    moradia_cidade = estudo_info['moradia_cidade']
+    
+    moradia_regiao = estudo_info['moradia_regiao']
+    if moradia_regiao == 'Campo':
+        moradia_regiao = 'rural'
+    else:
+        moradia_regiao = 'urbana'
+    
+    try: #Eliminar este hook posteriormente e criar uma função para cada campo...
+        moradia_condicao = estudo_info.get('moradia_condicao').lower()
+    except:
+        moradia_condicao = "casa do estudante universitário (CEU)"
+
+    output = output.replace("#IDADE#", str(idade))
+    output = output.replace("#COTISTA#", analisar_cota(cotista, tipo_cota1, tipo_cota2))
+    output = output.replace("#TIPO_EM#", tipo_EM)
+    output = output.replace("#ANO_EM#", ano_EM)
+    output = output.replace("#CURSO#", curso)
+    output = output.replace("#TURNO#", turno_curso)
+    output = output.replace("#RENDA_ESTUDANTE#", analisar_renda_estudante(estudo_info, nome))
+    output = output.replace("#ESTUDANTE_PROGRAMAS#", analisar_vinculo_com_programas(cpf))
+    output = output.replace("#NUM_PESSOAS#", str(num_pessoas))
+    output = output.replace("#INTEGRANTES#", informacao_basica_pessoas)
+    output = output.replace("#SITUACAO_RESIDENCIA#", situacao_residencia)
+    output = output.replace("#MORADIA_CONDICAO#", moradia_condicao)
+    output = output.replace("#MORADIA_CIDADE#", moradia_cidade)
+    output = output.replace("#MORADIA_REGIAO#", moradia_regiao)
+    output = output.replace("#MORADIA_LOCALIDADE#", moradia_localidade)
+    output = output.replace("#SAUDE#", analisar_agravos_saude(estudo_info))
+    output = output.replace("#RENDA_AVAL#", renda_pessoas)
+
+    if sex_info[nome.split(" ")[0]] == "m":
+        output = output.replace('#@#', 'o')
+    elif sex_info[nome.split(" ")[0]] == "f":
+        output = output.replace('#@#', 'a')
+    else:
+        print(verde("Utilizar qual flexão de gênero? [m|f|i]"))
+        op = input_op(["m", "f", "i"])
+        if op == "m":
+            output = output.replace('#@#', 'o')
+        elif op == "f":
+            output = output.replace('#@#', 'a')
+        else:
+            output = output.replace('#@#', 'x')
+    
+    output = limpar_texto_de_saida(output)
+    
+    print(output)
+
+        
+if __name__ == '__main__':
+    main()
+
+
+
+
+
+

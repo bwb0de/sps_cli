@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Insere, altera ou lê informações do usuário alvo em '$HOME/.current_target'.
+
+Usage:
+    target ( set | edit ) <campo> <valor>
+    target ( get ) <campo>
+    target [ -s|-e ] ( show )
+    target ( select ) <identificador>
+
+
+Options:
+    -s, --info-simples
+    -e, --info-emergencial
+
+"""
+
+import os
+
+from docopt import docopt
+from python_modules.cli_tools import load_json, save_json
+from python_modules.cli_base import home_folder
+from python_modules.cli_base import arquivo_usuario_alvo
+from python_modules.cli_base import users_list_of_dicts, dados_index, get_all_values_form_field
+from python_modules.cli_tools import verde, amarelo, vermelho
+from python_modules.cli_base import show_nfo_frag, show_nfo_frag_by_nome, get_info_from_index
+
+matriculas = get_all_values_form_field('identificador', users_list_of_dicts)
+
+args = docopt(__doc__)
+
+def main():
+    if args['set'] or args['edit']:
+        ct = load_json(os.sep.join([home_folder, '.current_target']))
+        ct[args['<campo>']] = args['<valor>']
+        save_json(ct, os.sep.join([home_folder, '.current_target']))
+
+
+    elif args['get']:
+        ct = load_json(os.sep.join([home_folder, '.current_target']))
+        print(ct.get(args['<campo>']))
+
+    elif args['show']:
+        ct = load_json(os.sep.join([home_folder, '.current_target']))
+        if args['--info-simples']:
+            print(amarelo(ct['nome'])+' - '+amarelo(ct['identificador']))
+        elif args['--info-emergencial']:
+            print(amarelo("Solicito pagamento de auxílio emergencial a {nome} ({idt}), vinculado ao curso {curso}.".format(nome=ct['nome'], idt=ct['identificador'], curso=ct['curso'])))
+        else:
+            for k in ct.keys():
+                print(verde("{}: ".format(k))+amarelo("{}".format(ct[k])))
+
+    elif args['select']:
+        if args["<identificador>"].find('@') != -1:
+            identificador_real = get_info_from_index(args["<identificador>"], 'est-eml', index_de_dados=dados_index)
+            if identificador_real == None:
+                print(vermelho("Identificador não encontrado..."))
+                exit()
+            elif len(identificador_real) > 1:
+                pass
+            else:
+                identificador_real = identificador_real[0]
+            
+        elif args["<identificador>"].find('/') != -1:
+            identificador_real = args["<identificador>"]
+            if not identificador_real in matriculas:
+                print(vermelho("Identificador não encontrado..."))
+                exit()
+        
+        else:
+            identificador_real = show_nfo_frag_by_nome(args["<identificador>"], users_list_of_dicts, dados_index)
+
+        if identificador_real == None:
+            pass
+        else:
+            save_json(show_nfo_frag(identificador_real, 'est', users_list_of_dicts, dados_index, print_info=False), arquivo_usuario_alvo)
+
+
+
+ 
+if __name__ == '__main__':
+	main()
+
+

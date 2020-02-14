@@ -1,0 +1,18 @@
+#!/bin/bash
+
+#
+# Inicia servidor Node.js e outros serviços.
+#
+
+function main() {
+    www_folder="/home/danielc/Documentos/Devel/GitHub/sps_fup2/www/"
+    wrk_folder="/home/danielc/Documentos/Devel/GitHub/sps_fup2/cli/workers"
+    ini_folder=$(pwd)
+
+    echo "Preparando Node.JS e demais workes..."
+    cd "$www_folder"
+    node index.js&
+    mergedbwrk&
+}
+
+main

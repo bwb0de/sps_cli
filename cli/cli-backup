@@ -1,0 +1,40 @@
+#!/bin/sh
+
+#
+# Script para automação de backup e restauração dos arquivos de dados
+#
+
+GLOBAL_CONFIG_FOLDER="/etc/cli"
+GLOBAL_CONFIG_FILE="cli_tools.conf"
+INIT_FOLDER=$(pwd)
+PASTA_DE_DADOS=$(grep PASTA_DE_DADOS $GLOBAL_CONFIG_FOLDER/$GLOBAL_CONFIG_FILE | cut -d = -f 2)
+
+warning () {
+    printf "Usage:\n"
+    printf "    cli-backup\n"
+}
+
+full_info () {
+    printf "\n"
+    printf "Comando para criação de cópia de segurança dos arquivos de dados.\n"
+    printf "\n"
+    warning
+    printf "\n"
+    printf "Options:\n"
+    printf "    -h, --help\n"
+    printf "\n"
+}
+
+only_root () {
+    printf "Apenas o root pode executar esta ação...\n"
+    exit 
+}
+
+cd "$PASTA_DE_DADOS" || exit
+BACKUP_FNAME="sps_cli-backup-$(date +'%Y%j').zip"
+printf "Iniciando cópia de segurança. Arquivo de saída: %s\n\n" "$BACKUP_FNAME"
+zip -9r "$BACKUP_FNAME" -- *
+mv "$BACKUP_FNAME" "$INIT_FOLDER"
+printf "\n"
+cd "$INIT_FOLDER" || exit
+

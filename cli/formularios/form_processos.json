@@ -1,0 +1,68 @@
+{
+    "external_registry_file": "corrigidos.json",
+    "form_head": "Registro de processos",
+    "form_info": "Intrumental para registro de processos gerados no âmbito do SPS/FUP",
+    "form_lst_fields": "identificador, numero_sei, assunto, resultado",
+    "form_questions": [
+        {
+            "tipo": "text",
+            "id": "identificador",
+            "enunciado": "Matrícula"
+        },
+        {
+            "tipo": "text",
+            "id": "numero_sei",
+            "enunciado": "Número do processo no SEI"
+        },
+        {
+            "tipo": "checkbox",
+            "id": "motivo",
+            "enunciado": "Motivação",
+            "alternativas": [
+                "Alega custos com saúde de familiares, não apresentou comprovantes",
+                "Alega dificuldade para arcar com os custos de alimentação",
+                "Alega dificuldade para arcar com os custos de retorno à cumunidade",
+                "Alega dificuldades decorrentes da troca de profissional",
+                "Alega dificuldades para arcar com os custos básicos de permanência na instituição",
+                "Alega impossibilidade de verificar a legibilidade do anexos",
+                "Alega mudança para pior na situação de renda",
+                "Alega necessidade de adquirir medicação de uso contínuo para si ou integrante do grupo familiar",
+                "Alega necessidade de alugar um local próprio para residir",
+                "Alega necessidade de arcar com custos de moradia devido a dificuldade de acesso ao campus (auxílio aos colegas de república)",
+                "Alega necessidade de arcar com custos inesperados de saúde",
+                "Alega que condições de moradia ou local de repouso interferem no rendimento acadêmico",
+                "Alega que contraiu dívidas e ficou em dificuldade em função do fechamento do RU",
+                "Alega que faz parte da excessão dos estudantes do DF",
+                "Alega que foi expulsa de casa; Alega dificuldades de acesso ao campus em firtude da localidade da residência atual",
+                "Alega risco de abandono de curso em virtude de problemas ocorridos no ambiente familiar",
+                "Alega ter sido furtada; Alega perda do cartão do DFTRANS; Alega não estar recebendo pagamento do programa de extensão",
+                "Argumenta que foi solicitada documentação não exigida no edital",
+                "Custos de saúde",
+                "Dificuldade de acessar o campus",
+                "Dificuldade de arcar com custos básicos",
+                "Dificuldade em virtude da grande quantidade de correções",
+                "Dificuldade para arcar com os custos básicos de permanência/acesso em face ao óbito do/a mantenedor/a",
+                "Documentação incompleta por dificuldade de acesso à internet",
+                "Documentação incompleta por dificuldades com os documentos pessoais",
+                "Documentação não atualizada deveu-se à ação de terceiro",
+                "Dúvida que levou à desclassificação está no estudo",
+                "Emergência odontológica",
+                "Erro do estudante no preenchimento do formulário",
+                "Erro na avaliação socioeconômica",
+                "Estudante alega equivalência entre documento de 'saldo' e 'extrato' para seu tipo de conta",
+                "Estudante alega que anexou a documentação, mas que esqueceu de clicar em salvar",
+                "Impossibilidade de anexar mais documentos no campo aberto.",
+                "Indica falha no cálculo da pontuação",
+                "Novas pendências foram solicitadas após o fechamento do sistema",
+                "Novos questionamentos surgiram após o período de correção",
+                "Prazo curto para apresentação de pendências",
+                "Reconhece pendência e encaminha documentos em anexo",
+                "Solicita a conclusão do estudo com a retirada de membros do grupo familiar",
+                "Solicita avaliação de excepcionalidade do caso",
+                "Solicita inclusão no pleito da alimentação",
+                "Solicita suporte para arcar com gastos de saúde",
+                "Outro"
+            ]
+        }
+    ]
+}

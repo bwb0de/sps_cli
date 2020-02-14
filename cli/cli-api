@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Adiniona, atualiza, pequisa e remove registros dos arquivos de dados.
+O comando 'novo' realiza o processo de inserção de dados forma interativa.
+
+Usage:
+    cli-api ( insert ) [ -tp ] <arquivo_de_dados> <chave::valor>...
+    cli-api ( update ) <arquivo_de_dados> <identificador> <chave::valor>...
+    cli-api ( remove ) [ -c ] <arquivo_de_dados> <identificador> 
+    cli-api ( get ) <identificador>
+    cli-api ( tag-insert ) <arquivo_de_dados> <etiqueta> <identificador>...
+    cli-api ( tag-replace ) <arquivo_de_dados> <valor-antigo> <valor-novo>
+
+Options:
+    -v, --version
+    -t, --time
+    -p, --profissional
+    -c, --remover-completamente
+
+
+"""
+
+
+import getpass
+import os
+
+from docopt import docopt
+from subprocess import getoutput
+from python_modules.cli_tools import save_json, load_json, select_op, verde, vermelho
+from python_modules.cli_decorators import check_config_existance
+
+from python_modules.cli_base import \
+    timestamp,\
+    get_all_values_form_field,\
+    numero_sei_mascara,\
+    numero_identificador_mascara
+
+from python_modules.cli_base import show_nfo_frag, show_nfo_frag_by_nome, get_info_from_index
+
+from python_modules.cli_base import \
+    username,\
+    hostname,\
+    db_folder,\
+    users_list_of_dicts,\
+    dados_processos,\
+    dados_atendimentos,\
+    dados_corrigidos,\
+    dados_index
+
+
+args = docopt(__doc__)
+
+def inserir_info(arquivo_de_dados, chaves_e_valores, reg_time=False, profissional=False, username=username, hostname=hostname):
+    nfo={}
+    if reg_time:
+        nfo['timestamp'] = timestamp()
+    if profissional:
+        nfo['prof_atd'] = '@'.join([username,hostname])
+    for chave_e_valor in chaves_e_valores:
+        chave = chave_e_valor.split("::")[0]
+        valor = chave_e_valor.split("::")[1]
+        nfo[chave]=valor
+    arquivo_alvo = os.sep.join([db_folder, arquivo_de_dados])
+    arquivo_info = load_json(arquivo_alvo)
+    arquivo_info.append(nfo)
+    save_json(arquivo_info, arquivo_alvo)
+
+def remover_info(arquivo_de_dados, identificador, remove_all=False): # Otimizar com index
+    target = None
+    arquivo_alvo = os.sep.join([db_folder, arquivo_de_dados])
+    arquivo_info = load_json(arquivo_alvo)
+    n = 0
+    for item in arquivo_info:
+        if item['identificador'] == identificador:
+            target = item
+            arquivo_info.remove(target)
+            n += 1
+            if not remove_all:
+                break
+
+    if n == 0:
+        print(vermelho("Nenhum reistro removido..."))
+    elif n == 1:
+        print(verde("1 registro foi removido..."))
+    else:
+        print(verde("{} registros foram removidos...".format(n)))
+
+    save_json(arquivo_info, arquivo_alvo)
+
+def atualizar_info(arquivo_de_dados, identificador, chaves_e_valores): # Otimizar com index
+    target = None
+    arquivo_alvo = os.sep.join([db_folder, arquivo_de_dados])
+    arquivo_info = load_json(arquivo_alvo)
+    for item in arquivo_info:
+        if item['identificador'] == identificador:
+            target = item
+            break
+    for chave_e_valor in chaves_e_valores:
+        chave = chave_e_valor.split("::")[0]
+        valor = chave_e_valor.split("::")[1]
+        target[chave]=valor
+    save_json(arquivo_info, arquivo_alvo)
+
+
+def inserir_marcador(arquivo_de_dados, etiqueta, identificadores):
+    arquivo_alvo = os.sep.join([db_folder, arquivo_de_dados])
+    arquivo_info = load_json(arquivo_alvo)
+    for identificador in identificadores:
+        for item in arquivo_info:
+            if item['identificador'] == identificador:
+                try:
+                    item['marcador'].append(etiqueta)
+                except KeyError:
+                    item['marcador'] = [etiqueta]
+        save_json(arquivo_info, arquivo_alvo)
+
+
+
+def substituir_marcadores(arquivo_de_dados, etiqueta_antiga, etiqueta_substitutiva):
+    arquivo_alvo = os.sep.join([db_folder, arquivo_de_dados])
+    arquivo_info = load_json(arquivo_alvo)
+    for item in arquivo_info:
+        if item.get('marcador'):
+            if etiqueta_antiga in item['marcador']:
+                item['marcador'].remove(etiqueta_antiga)
+                item['marcador'].append(etiqueta_substitutiva)
+                item['marcador'].sort()
+    save_json(arquivo_info, arquivo_alvo)
+
+matriculas = tuple(get_all_values_form_field('identificador', users_list_of_dicts))
+
+
+@check_config_existance
+def main():
+    if args['insert']:
+        inserir_info(args['<arquivo_de_dados>'], args['<chave::valor>'], args['--time'], args['--profissional'])
+
+    elif args['remove']:
+        remover_info(args['<arquivo_de_dados>'], args['<identificador>'][0], args['--remover-completamente'])
+
+    elif args['update']:
+        atualizar_info(args['<arquivo_de_dados>'], args['<identificador>'][0], args['<chave::valor>'])
+
+    elif args['get']:
+        if args["<identificador>"][0].find('@') != -1:
+            identificador_real = get_info_from_index(args["<identificador>"], 'est-eml', index_de_dados=dados_index)
+            if identificador_real == None:
+                print(vermelho("Identificador não encontrado..."))
+                exit()
+            elif len(identificador_real) > 1:
+                pass
+            else:
+                identificador_real = identificador_real[0]
+        
+        elif args["<identificador>"][0].find('/') != -1:
+            identificador_real = args["<identificador>"][0]
+            if not identificador_real in matriculas:
+                print(vermelho("Identificador não encontrado..."))
+                exit()
+        
+        else:
+            identificador_real = show_nfo_frag_by_nome(args["<identificador>"][0], users_list_of_dicts, dados_index)
+
+        if identificador_real == None:
+            pass
+        else:
+            print(verde("Dados pessoais"))
+            show_nfo_frag(identificador_real, 'est', users_list_of_dicts, dados_index)
+
+            print("")
+            print(verde("Dados de atendimentos"))
+            show_nfo_frag(identificador_real, 'atd', dados_atendimentos, dados_index)
+            
+            print("")
+            print(verde("Dados de processos"))
+            show_nfo_frag(identificador_real, 'proc', dados_processos, dados_index)
+
+    elif args['tag-insert']:
+        inserir_marcador(args['<arquivo_de_dados>'], args['<etiqueta>'], args['<identificador>'])
+
+    elif args['tag-replace']:
+        if getoutput("whoami") != 'root':
+            print("Este comando só pode ser executado pelo usuário 'root'...")
+        else:
+            substituir_marcadores(args['<arquivo_de_dados>'], args["<valor-antigo>"], args["<valor-novo>"])
+
+        
+if __name__ == '__main__':
+    main()

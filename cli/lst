@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Lista informações registradas nos arquivos de dados.
+
+Usage:
+    lst [ -j ] ( usr | estudantes ) [<marcador>]
+    lst [ -j ] ( atd | atendimentos )
+    lst [ -j ] ( tag | marcadores ) 
+    lst [ -j ] ( sei | processos ) 
+    lst [ -j ] ( pnd | processos-pendentes )
+    lst [ -j ] ( est | estudos ) 
+    lst [ -j ] ( pro | profissionais ) 
+    lst text <alvo> <fields>...
+
+Options:
+    -v, --version
+    -j, --json-output
+
+"""
+
+import json
+import os
+
+from docopt import docopt
+from subprocess import getoutput
+from python_modules.cli_base import get_all_values_form_field, get_all_users_tags, col_wid
+from python_modules.cli_tools import mk_randnum_seq, verde, amarelo, listar_dicionario, load_text_db_file, load_text_db_line, get_indexes, exhaust_generator_and_print
+from python_modules.cli_decorators import check_config_existance
+from python_modules.cli_base import \
+    users_list_of_dicts,\
+    dados_atendimentos,\
+    users_list_of_dicts,\
+    dados_index,\
+    dados_processos,\
+    dados_processos_pend,\
+    dados_estudos,\
+    dados_profissionais
+
+
+args = docopt(__doc__)
+
+
+@check_config_existance
+def main():
+    if args['usr'] or args['estudantes']:
+        if args['<marcador>']:
+            if args['<marcador>'] == 'id':
+                if args['--json-output']:
+                    print(listar_dicionario(users_list_of_dicts, [col_wid['identificador'], col_wid['nome_usuario'], col_wid['eml_usuario']], [], 'json'))
+                else:
+                    exhaust_generator_and_print(listar_dicionario(users_list_of_dicts, [col_wid['identificador'], col_wid['nome_usuario'], col_wid['eml_usuario']], [], 'cli'))
+
+            else:
+                if args['--json-output']:
+                    print(listar_dicionario(users_list_of_dicts, [col_wid['identificador'], col_wid['nome_usuario'], col_wid['eml_usuario']], [args['<marcador>']], 'json'))
+                else:
+                    exhaust_generator_and_print(listar_dicionario(users_list_of_dicts, [col_wid['identificador'], col_wid['nome_usuario'], col_wid['eml_usuario']], [args['<marcador>']]))
+
+        else:
+            if args['--json-output']:
+                print(listar_dicionario(users_list_of_dicts, [col_wid['identificador'], col_wid['nome_usuario'], col_wid['eml_usuario']], tipo_output='json'))
+            else:
+                exhaust_generator_and_print(listar_dicionario(users_list_of_dicts, [col_wid['identificador'], col_wid['nome_usuario'], col_wid['eml_usuario']]))
+
+
+    
+    elif args['text']:
+        # Metodo para ser implementado em substituição ao modelo utilizado com JSON ou CSV
+        #
+        #  O motivo disso é a possibilidade de carregar-se linha à linha via gerador
+        #
+        generator_t = load_text_db_line(load_text_db_file(args['<alvo>']))
+        head = False
+        for h in generator_t: 
+            head = h
+            break
+        
+        fields_selected = []
+
+        for field in args['<fields>']:
+            idx = get_indexes(field, head)
+            if not idx == []:
+                fields_selected.append(idx[0])
+        
+        output = ""
+        for col in fields_selected:
+            output += head[col].ljust(32)
+        output += '\n'
+
+        for line in generator_t:
+            for col in fields_selected:
+                if col == fields_selected[-1]:
+                    output += line[col].ljust(32) + '\n'
+                else:
+                    output += line[col].ljust(32)
+        
+        print(output)
+
+    
+    elif args['atd'] or args['atendimentos']:
+        if args['--json-output']:
+            print(listar_dicionario(dados_atendimentos, [col_wid['timestamp'], col_wid['identificador'], ('atd_t', 0)], tipo_output='json'))
+        else:
+            exhaust_generator_and_print(listar_dicionario(dados_atendimentos, [col_wid['timestamp'], col_wid['identificador'], ('atd_t', 0)]))
+    
+    elif args['tag'] or args['marcadores']:
+        marcadores = {}
+        for s in dados_index:
+            if s['set_de_dados'] == 'tag':
+                marcadores = s['dados']
+        
+        for m in marcadores.keys():
+            print(verde(m))
+            for idx in marcadores[m]:
+                print(users_list_of_dicts[idx]['identificador'].ljust(col_wid['identificador'][1]), users_list_of_dicts[idx]['nome'].ljust(col_wid['nome_usuario'][1]), users_list_of_dicts[idx]['eml'])
+            print(amarelo("Total: {}".format(len(marcadores[m]))))
+            print('')
+        
+
+    elif args['sei'] or args['processos']:
+        
+        if args['--json-output']:
+            print(listar_dicionario(dados_processos, [col_wid['identificador'], col_wid['numero_sei'], col_wid['motivo'], col_wid['assunto']], tipo_output='json'))
+        else:
+            exhaust_generator_and_print(listar_dicionario(dados_processos, [col_wid['identificador'], col_wid['numero_sei'], col_wid['motivo'], col_wid['assunto']]))
+
+    
+    elif args['pnd'] or args['processos-pendentes']:
+        if args['--json-output']:
+            print(listar_dicionario(dados_processos_pend, [col_wid['identificador'], col_wid['numero_sei'], col_wid['assunto']], tipo_output='json'))
+        else:
+            exhaust_generator_and_print(listar_dicionario(dados_processos_pend, [col_wid['identificador'], col_wid['numero_sei'], col_wid['assunto']]))
+
+    
+    elif args['est'] or args['estudos']:
+        exhaust_generator_and_print(listar_dicionario(dados_estudos, [col_wid['identificador'], col_wid['cotista'], col_wid['turno_curso'], col_wid['motivos_estudo'], col_wid['campus']]))
+
+    
+    elif args['pro'] or args['profissionais']:
+        if args['--json-output']:
+            print(listar_dicionario(dados_profissionais, [col_wid['uid'], col_wid['nome_profissional'], col_wid['eml_profissional']], tipo_output='json'))
+        else:
+            exhaust_generator_and_print(listar_dicionario(dados_profissionais, [col_wid['uid'], col_wid['nome_profissional'], col_wid['eml_profissional']]))
+
+
+
+if __name__ == '__main__':
+	main()

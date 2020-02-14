@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Retorna uma string randômica numérica com a quantidade de algarismos solicitados.
+
+Usage:
+    randnum ( <num_algarismos> )
+
+"""
+
+
+from docopt import docopt
+from python_modules.cli_tools import mk_randnum_seq
+
+args = docopt(__doc__)
+
+def main():
+    print(mk_randnum_seq(int(args["<num_algarismos>"])))
+
+
+if __name__ == '__main__':
+	main()

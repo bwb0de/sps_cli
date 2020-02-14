@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Envia ou baixa fragmentos de dados entre a nuvem 'box' e a pasta dados/fragmentos.
+Ao saírem do computador local as informações são criptografadas.
+Ao chegarem da nuvem, as informações poderão ser integradas à base de dados local.
+
+Usage:
+    fragment ( send ) <arquivo>
+    fragment ( get )
+    fragment ( joint )
+
+"""
+
+import os
+
+from docopt import docopt
+from subprocess import getoutput
+
+from python_modules.cli_tools import load_json, save_json 
+
+from python_modules.cli_base import \
+    home_folder,\
+    security_folder,\
+    fragments_folder,\
+    arquivo_usuarios,\
+    users_list_of_dicts,\
+    rclone_drive,\
+    formato_lista_fragmentos
+
+
+args = docopt(__doc__)
+
+
+def getfrags(users_list_of_dicts, security_folder, home_folder, fragments_folder, arquivo_usuarios):
+    os.system('cp "{}/rclone-token" "{}/.rclone.conf"'.format(security_folder, home_folder))
+    os.system('rclone copy {rclone_drive}:/sps_fup2/fragmentos_lista/ "{pasta_frags}/"'.format(pasta_frags=fragments_folder, rclone_drive=rclone_drive))
+    
+    lista_recebidos = load_json(os.sep.join([fragments_folder, 'recebidos.json']))
+    listas_emitidos = os.listdir(fragments_folder)
+    fragmentos_para_baixar = []
+
+    os.chdir(fragments_folder)
+    for l in listas_emitidos:
+        if l.find('emitidos-') != -1:
+            l_info = load_json("./"+l)
+            for i in l_info:
+                if not i['arquivo'] in lista_recebidos:
+                    fragmentos_para_baixar.append(i['arquivo'])
+            os.remove(l)
+
+    print(fragmentos_para_baixar)
+    for f in fragmentos_para_baixar:
+        print(f)
+        os.system('rclone copy "{rclone_drive}:/sps_fup2/fragmentos/{fragmento}" "{pasta_frag}/"'.format(fragmento=f, pasta_frag=fragments_folder, rclone_drive=rclone_drive))
+        os.system('cli-decrypt "{}/{}"'.format(fragments_folder, f))
+        
+        if f[0:3] == "USR": #Framgento usuários
+            fragment_info = load_json("./"+f.replace('.cpt',''))
+            print("Integrando {}...".format(f))
+            users_list_of_dicts.append(fragment_info)
+            save_json(users_list_of_dicts, arquivo_usuarios)
+            os.remove(f.replace('.cpt',''))
+
+        elif f[0:3] == "ATD": #Fragmento atendimento
+            pass
+        elif f[0:3] == "SEI": #Fragmento processo
+            pass
+        elif f[0:3] == "EST": #Fragmento estudo
+            pass
+        elif f[0:3] == "COR": #Fragmento correção
+            pass                        
+
+        lista_recebidos.append(f)
+
+    save_json(lista_recebidos, os.sep.join([fragments_folder, 'recebidos.json']))
+
+    os.system('rm "{}/.rclone.conf"'.format(home_folder))
+
+    fragfiles = os.listdir(fragments_folder)
+    for f in fragfiles:
+        if f.find('.cpt') != -1:
+            pass
+            
+
+
+def sendfrag(arquivo, rclone_drive, security_folder, home_folder, fragments_folder, formato_lista_fragmentos):
+    os.system("cli-encrypt {}".format(arquivo))
+    arquivo_criptografado = arquivo + '.cpt'
+    os.system('cp "{}/rclone-token" "{}/.rclone.conf"'.format(security_folder, home_folder))
+    os.system('rclone move "{frag_crypt}" {rclone_drive}:/sps_fup2/fragmentos/'.format(frag_crypt=arquivo_criptografado, rclone_drive=rclone_drive))
+    #os.system('cli-decrypt "{}"'.format(arquivo_criptografado))
+    if arquivo_criptografado.find(os.sep) != -1:
+        arquivo_criptografado = arquivo_criptografado.split(os.sep)[-1]
+    os.system('cli-api insert -tp fragmentos/emitidos.json "arquivo::{}"'.format(arquivo_criptografado))
+    os.system('cp "{fragf}/emitidos.json" "{fragf}/{emit_name}"'.format(fragf=fragments_folder, emit_name=formato_lista_fragmentos))
+    os.system('rclone move "{fragf}/{emit_name}" {rclone_drive}:/sps_fup2/fragmentos_lista/'.format(fragf=fragments_folder, emit_name=formato_lista_fragmentos, rclone_drive=rclone_drive))
+    os.system('rm "{}/.rclone.conf"'.format(home_folder))
+
+
+def main():
+    if args['send']:
+        sendfrag(args["<arquivo>"], rclone_drive, security_folder, home_folder, fragments_folder, formato_lista_fragmentos)
+    
+    elif args['get']:
+        getfrags(users_list_of_dicts, security_folder, home_folder, fragments_folder, arquivo_usuarios)
+        
+
+
+if __name__ == '__main__':
+    newpid = os.fork()
+    if newpid == 0: #Executa comando em background...
+        main()

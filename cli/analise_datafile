@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Verifica informações do arquivo de dados alvo. Semelhante a 'mkstat' mas com opções 'on the fly'.
+Realiza contagem cruzada de campos...
+
+Usage:
+    analise_datafile csv <filename>
+    analise_datafile json <filename>
+
+Options:
+    -v, --version
+
+"""
+
+import os
+import csv
+
+from collections import Counter
+from docopt import docopt
+from python_modules.cli_tools import select_ops, select_op
+
+args = docopt(__doc__)
+
+def read_csv_file_info(filename, delimiter='\t'):
+    with open(filename) as f:
+        f_data = csv.DictReader(f, delimiter=delimiter)
+        print("Quais campos serão incluídos na análise?")
+        fields_selected = select_ops(f_data.fieldnames, 1, True)
+        print('')
+        print("Realizar análise cruzada de colunas?")
+        op1 = select_op(['Sim', 'Não'], 1)
+        fields_selected_to_cross = []
+        if op1 == ['Sim']:
+            while True:
+                print('Quais campos deseja cruzar?')
+                fields_selected_to_cross.append(select_ops(f_data.fieldnames, 1, True))
+                print('')
+                print("Realizar outro cruzamento?")
+                op2 = select_op(['Sim', 'Não'], 1)
+                if op2 == ['Não']:
+                    break
+
+    print(fields_selected + fields_selected_to_cross)
+    show_csv_fields_count(filename, fields_selected + fields_selected_to_cross, delimiter='\t')
+
+
+def concatenate_columns_response(linha, fields):
+    responses = []
+    for field in fields:
+        responses.append(linha[field])
+    return ' '.join(responses)
+
+
+def count_responses(filename, item, delimiter="\t"):
+    output = ''
+    with open(filename) as f:
+        linhas = csv.DictReader(f,delimiter="\t")
+        contagem = Counter()
+        for linha in linhas:
+            #
+            # Item may be a sigle field or a list of fields...
+            #
+            if type(item) == list:
+                contagem.update([concatenate_columns_response(linha, item)])
+            else:
+                contagem.update([linha[item]])
+            
+        output = contagem
+    return output
+            
+
+
+def show_csv_fields_count(filename, fields_list, delimiter='\t'):
+    responses = []
+    for item in fields_list:
+        responses.append(count_responses(filename, item, delimiter))
+    for response in responses:
+        imprime_dicionario(response)
+
+
+
+def imprime_dicionario(iterator):
+    for key in sorted(iterator.keys()):
+        print(key+": "+str(iterator[key]))
+    print('')
+
+    
+
+def main():
+    if args['csv']:
+        read_csv_file_info(args['<filename>'])
+    
+    elif args['json']:
+        pass
+
+        
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+
+Adiniona novos registros nos arquivos de dados.
+
+Usage:
+    simple-csv-editor ( convert ) <target_file> <old_delimiter> <new_delimiter> 
+    simple-csv-editor ( 2json ) <target_file>
+
+Options:
+    --version
+
+Observações:
+    A opção <lista-ops> pode ser separada por ';' para criar um campo de múltipla escolha.
+    O comando 'dbi' insere as respostas de um formulário¹ em um arquivo de dados JSON já criado.
+"""
+
+from docopt import docopt
+from subprocess import getoutput
+from python_modules.cli_tools import load_big_csv, save_csv, select_ops
+
+args = docopt(__doc__)
+
+def main():
+    if args['convert']:
+        csv_generator = load_big_csv(args['<target_file>'], delimiter=args['<old_delimiter>'])
+        first_loop = True
+        output = []
+        selected_cols = []
+        for line in csv_generator:
+            output_line = {}
+            if first_loop:
+                print("Selecione as colunas do arquivo de saída:")
+                selected_cols = select_ops(list(line.keys()), 3)
+                first_loop = False
+            for col in selected_cols:
+                output_line[col] = line[col]
+            print(output_line)
+            output.append(output_line)
+        save_csv(output, "arquivo_saida.csv")
+
+
+if __name__ == '__main__':
+    main()
